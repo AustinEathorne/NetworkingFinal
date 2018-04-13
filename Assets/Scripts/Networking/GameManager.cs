@@ -5,62 +5,54 @@ using UnityEngine.Networking;
 
 public class GameManager : NetworkManager
 {
-	private struct PlayerInfo
-	{
-		public NetworkConnection connection;
-		public NetworkIdentity netowrkIdentity;
-		public string name;
-		public Color color;
+	public struct PlayerInfo
+	{										// For Server List
+		public NetworkConnection connection; // gets in OnServerConnect
+		public NetworkIdentity networkIdentity; // gets in OnSpawn?
+		public string name; // gets in CmdEnterLobby
+		public Color colour; // gets in CmdEnterLobby
 	}
-		
-	private List<PlayerInfo> playerInfoList;
+
+	// client
+	public PlayerInfo clientPlayerInfo; // used to set up player by client
+	[SerializeField]
+	private CanvasManager canvasManager;
+
+	// server
+	private List<PlayerInfo> playerInfoList; // used by server to update clients
+
+
 
 	#region Setup/Create
 
-	private IEnumerator Start()
-	{
-		bool isWaiting = true;
-		while(isWaiting)
-		{
-			if(Input.GetKeyDown(KeyCode.S))
-			{
-				isWaiting = false;
-				yield return this.StartCoroutine(this.SetupManager());
-				this.StartCoroutine(this.CreateServer());
-				Debug.Log("Server selected");
-			}
-			else if(Input.GetKeyDown(KeyCode.C))
-			{
-				isWaiting = false;
-				this.StartCoroutine(this.CreateClient());
-				Debug.Log("Client selected");
-			}
-
-			yield return null;
-		}
-	}
-
 	private IEnumerator SetupManager()
 	{
-		this.playerInfoList = new List<PlayerInfo>();
+		this.playerInfoList = new List<PlayerInfo>(4);
 
 		yield return null;
 	}
 
-	private IEnumerator CreateServer()
+	public IEnumerator CreateServer()
 	{
+		yield return this.StartCoroutine(this.SetupManager());
+
 		NetworkManager.singleton.networkPort = 4444;
 		NetworkManager.singleton.StartServer();
+
+		// Register Handlers
+		NetworkServer.RegisterHandler(CustomMsgType.PlayerInfo, this.OnPlayerInfoReceived);
 
 		Debug.Log("Server created");
 		yield return null;
 	}
 
-	private IEnumerator CreateClient()
+	public IEnumerator CreateClient()
 	{
 		NetworkManager.singleton.networkAddress = "192.168.2.99";
 		NetworkManager.singleton.networkPort = 4444;
 		NetworkManager.singleton.StartClient();
+
+		this.client.RegisterHandler(CustomMsgType.UpdateLobby, this.canvasManager.OnLobbyUpdateReceived);
 
 		Debug.Log("Client created");
 		yield return null;
@@ -76,6 +68,9 @@ public class GameManager : NetworkManager
 		PlayerInfo pInfo = new PlayerInfo();
 		pInfo.connection = _networkConnection;
 
+		// Add player info to the list
+		//this.playerInfoList[_networkConnection.connectionId - 1] = pInfo;
+
 		Debug.Log("Player " + _networkConnection.connectionId.ToString() + " has connected");
 	}
 
@@ -87,8 +82,39 @@ public class GameManager : NetworkManager
 		//ClientScene.AddPlayer(client.connection, 0);
 
 		// bring up intro canvas
+		this.canvasManager.playerPreviewPanel.SetActive(true);
+		this.canvasManager.colourPanel.SetActive(true);
 
 		Debug.Log("This client has connected");
+	}
+
+	#endregion
+
+	#region Menu
+
+	// Client
+	public void SendClientPlayerInformation()
+	{
+		RegisterPlayerInfoMessage msg = new RegisterPlayerInfoMessage();
+		msg.connection = this.clientPlayerInfo.connection;
+		msg.name = this.clientPlayerInfo.name;
+		msg.colour = this.clientPlayerInfo.colour;
+
+		this.client.Send(CustomMsgType.PlayerInfo, msg);
+	}
+
+	// Server
+	public void OnPlayerInfoReceived(NetworkMessage _networkMessage) // pass the client's player info
+	{
+		
+
+		// update the player info list for the sending client
+
+
+		// Send msg back to all clients with updated lobby stats (enters lobby as well for client that called this)
+		UpdateLobbyMessage msg = new UpdateLobbyMessage();
+		msg.msg = "bahhhh";
+		NetworkServer.SendToAll(CustomMsgType.UpdateLobby, msg);
 	}
 
 	#endregion
@@ -117,3 +143,30 @@ public class GameManager : NetworkManager
 
 	#endregion
 }
+
+#region Messages
+
+public class CustomMsgType
+{
+	public static short PlayerInfo = MsgType.Highest + 1;
+	public static short UpdateLobby = MsgType.Highest + 2;
+}
+
+public class RegisterPlayerInfoMessage : MessageBase
+{
+	public NetworkConnection connection;
+	public string name;
+	public Color colour;
+}
+
+public class UpdateLobbyInfoType
+{
+	public static short Info = MsgType.Highest + 2;
+}
+
+public class UpdateLobbyMessage : MessageBase
+{
+	public string msg;
+}
+
+#endregion

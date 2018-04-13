@@ -37,6 +37,10 @@ public class CanvasManager : MonoBehaviour {
 	[Header("Lobby")]
 	[SerializeField]
 	private List<GameObject> playerPanels;
+	[SerializeField]
+	private List<Image> playerColourImages;
+	[SerializeField]
+	private List<Text> playerNameTexts;
 
 
 	private void Start()
@@ -123,17 +127,40 @@ public class CanvasManager : MonoBehaviour {
 	public void OnLobbyUpdateReceived(NetworkMessage _networkMessage)
 	{
 		Debug.Log("Lobby update received");
+
+		// Read msg
+		UpdateLobbyMessage msg = _networkMessage.ReadMessage<UpdateLobbyMessage>();
+		Debug.Log("Player " + msg.connectionId.ToString() + " has connected");
+
+		for(int i = 0; i < 4; i++)
+		{
+			if(msg.isPlayerConnected[i])
+			{
+				this.playerColourImages[i].color = msg.playerColours[i];
+				this.playerNameTexts[i].text = msg.playerNames[i];
+				this.playerPanels[i].SetActive(true);
+			}
+			else
+			{
+				this.playerPanels[i].SetActive(false);
+			}
+		}
+
 		// Check if this is the first time receiving the panel update, if so, turn on the panel
 		if(!this.lobbyPanel.activeSelf)
+		{
 			this.lobbyPanel.SetActive(true);
+		}
 	}
 
+	// C
 	private void OnPlayerJoinLobby()
 	{
 		// update lobby board with msg details (bool isPlayerConnected(to show their panel), name, colour)
 
 	}
-
+		
+	// C
 	private void OnPlayerLeftLobby()
 	{
 		// update lobby board with msg details (bool isPlayerConnected(to show their panel), name, colour)

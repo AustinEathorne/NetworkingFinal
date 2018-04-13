@@ -6,20 +6,23 @@ using UnityEngine.Networking;
 public class GameManager : NetworkManager
 {
 	public struct PlayerInfo
-	{										// For Server List
-		public NetworkConnection connection; // gets in OnServerConnect
-		public NetworkIdentity networkIdentity; // gets in OnSpawn?
-		public string name; // gets in CmdEnterLobby
-		public Color colour; // gets in CmdEnterLobby
+	{
+		public int connectionId;
+		public int playerObjectId;
+		public string name;
+		public Color colour;
 	}
+
+
+	// server
+	private List<PlayerInfo> playerInfoList; // used by server to update clients (connectiond id, player info)
+	private List<bool> isClientConnected;
 
 	// client
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
+
 	[SerializeField]
 	private CanvasManager canvasManager;
-
-	// server
-	private List<PlayerInfo> playerInfoList; // used by server to update clients
 
 
 
@@ -27,7 +30,11 @@ public class GameManager : NetworkManager
 
 	private IEnumerator SetupManager()
 	{
-		this.playerInfoList = new List<PlayerInfo>(4);
+		this.playerInfoList = new List<PlayerInfo>();
+
+		this.isClientConnected = new List<bool>();
+		for(int i = 0; i < maxConnections; i++)
+			this.isClientConnected.Add(false);
 
 		yield return null;
 	}
@@ -52,7 +59,7 @@ public class GameManager : NetworkManager
 		NetworkManager.singleton.networkPort = 4444;
 		NetworkManager.singleton.StartClient();
 
-		this.client.RegisterHandler(CustomMsgType.UpdateLobby, this.canvasManager.OnLobbyUpdateReceived);
+		this.client.RegisterHandler(CustomMsgType.JoinLobby, this.canvasManager.OnLobbyUpdateReceived);
 
 		Debug.Log("Client created");
 		yield return null;
@@ -65,11 +72,15 @@ public class GameManager : NetworkManager
 	// Server - when the client has connected
 	public override void OnServerConnect (NetworkConnection _networkConnection)
 	{
-		PlayerInfo pInfo = new PlayerInfo();
-		pInfo.connection = _networkConnection;
+		// Create new player info
+		PlayerInfo temp  = new PlayerInfo();
+		temp.connectionId = _networkConnection.connectionId;
 
 		// Add player info to the list
-		//this.playerInfoList[_networkConnection.connectionId - 1] = pInfo;
+		this.playerInfoList.Add(temp);
+
+		//TODO: update this... only works if no one drops from lobby
+		this.isClientConnected[(_networkConnection.connectionId - 1)] = true;
 
 		Debug.Log("Player " + _networkConnection.connectionId.ToString() + " has connected");
 	}
@@ -96,7 +107,6 @@ public class GameManager : NetworkManager
 	public void SendClientPlayerInformation()
 	{
 		RegisterPlayerInfoMessage msg = new RegisterPlayerInfoMessage();
-		msg.connection = this.clientPlayerInfo.connection;
 		msg.name = this.clientPlayerInfo.name;
 		msg.colour = this.clientPlayerInfo.colour;
 
@@ -106,15 +116,47 @@ public class GameManager : NetworkManager
 	// Server
 	public void OnPlayerInfoReceived(NetworkMessage _networkMessage) // pass the client's player info
 	{
-		
+		Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + "'s info received!");
+
+		//Read msg with player info
+		RegisterPlayerInfoMessage infoMsg = _networkMessage.ReadMessage<RegisterPlayerInfoMessage>();
 
 		// update the player info list for the sending client
+		PlayerInfo temp = this.playerInfoList[(_networkMessage.conn.connectionId - 1)];
+		temp.name = infoMsg.name;
+		temp.colour = infoMsg.colour;
+		this.playerInfoList[(_networkMessage.conn.connectionId - 1)] = temp;
 
-
-		// Send msg back to all clients with updated lobby stats (enters lobby as well for client that called this)
+		// Create msg for all clients
 		UpdateLobbyMessage msg = new UpdateLobbyMessage();
-		msg.msg = "bahhhh";
-		NetworkServer.SendToAll(CustomMsgType.UpdateLobby, msg);
+		msg.connectionId = _networkMessage.conn.connectionId;
+		msg.isPlayerConnected = this.isClientConnected.ToArray();
+
+		string[] names = new string[maxConnections];
+		for(int i = 0; i < maxConnections; i++)
+		{
+			if(this.isClientConnected[i])
+			{
+				names[i] = this.playerInfoList[i].name;
+			}
+		}
+		msg.playerNames = names;
+
+		Color[] colours = new Color[maxConnections];
+		for(int i = 0; i < maxConnections; i++)
+		{
+			if(this.isClientConnected[i])
+			{
+				colours[i] = this.playerInfoList[i].colour;
+			}
+		}
+		msg.playerColours = colours;
+
+		// Send to all
+		NetworkServer.SendToAll(CustomMsgType.JoinLobby, msg);
+
+		// update all client's lobby UI
+		Debug.Log("Updating " + this.playerInfoList.Count.ToString() + " clients' lobbies");
 	}
 
 	#endregion
@@ -149,24 +191,26 @@ public class GameManager : NetworkManager
 public class CustomMsgType
 {
 	public static short PlayerInfo = MsgType.Highest + 1;
-	public static short UpdateLobby = MsgType.Highest + 2;
+	public static short JoinLobby = MsgType.Highest + 2;
 }
 
 public class RegisterPlayerInfoMessage : MessageBase
 {
-	public NetworkConnection connection;
 	public string name;
 	public Color colour;
 }
 
-public class UpdateLobbyInfoType
+public class UpdateLobbyType
 {
 	public static short Info = MsgType.Highest + 2;
 }
 
 public class UpdateLobbyMessage : MessageBase
 {
-	public string msg;
+	public int connectionId;
+	public bool[] isPlayerConnected;
+	public string[] playerNames;
+	public Color[] playerColours;
 }
 
 #endregion

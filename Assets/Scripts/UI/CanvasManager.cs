@@ -190,7 +190,7 @@ public class CanvasManager : MonoBehaviour {
 			this.timeText.enabled = true;
 			if(msg.countDownTime > -1)
 			{
-				this.timeText.text = msg.countDownTime.ToString();
+				this.timeText.text = msg.countDownTime > 0 ? msg.countDownTime.ToString() : "GOOD LUCK!";
 			}
 			else
 			{

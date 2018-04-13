@@ -14,9 +14,9 @@ public class GameManager : NetworkManager
 	}
 
 	// Server
-	private float lobbyCountDownStartTime = 10.0f;
-	private float lobbyCountDownTime = 10.0f;
-	private int lastLobbyCountDownTimeSent = 10;
+	private float lobbyCountDownStartTime = 11.0f;
+	private float lobbyCountDownTime = 11.0f;
+	private int lastLobbyCountDownTimeSent = 11;
 	private bool isLobbyTimerCountingDown = false;
 
 	private List<PlayerInfo> playerInfoList; // used by server to update clients (connectiond id, player info)

@@ -57,6 +57,17 @@ public class CanvasManager : MonoBehaviour {
 		this.initialPanel.SetActive(true);
 	}
 
+	public void CloseMenu()
+	{
+		Debug.Log("Close Menu!");
+
+		this.initialPanel.SetActive(false);
+		this.playerPreviewPanel.SetActive(false);
+		this.colourPanel.SetActive(false);
+		this.namePanel.SetActive(false);
+		this.lobbyPanel.SetActive(false);
+	}
+
 	#region Server/Client Select
 
 	public void OnServerSelect()
@@ -142,7 +153,7 @@ public class CanvasManager : MonoBehaviour {
 
 		// Read msg
 		LobbyMessage msg = _networkMessage.ReadMessage<LobbyMessage>();
-		Debug.Log("Player " + msg.connectionId.ToString() + " has connected");
+		//Debug.Log("Player " + msg.connectionId.ToString() + " has connected");
 
 		// check for players connected
 		for(int i = 0; i < 4; i++)
@@ -177,7 +188,14 @@ public class CanvasManager : MonoBehaviour {
 		{
 			// Enable text & update with the time
 			this.timeText.enabled = true;
-			this.timeText.text = msg.countDownTime > -1 ? msg.countDownTime.ToString() : "GOOD LUCK!";
+			if(msg.countDownTime > -1)
+			{
+				this.timeText.text = msg.countDownTime.ToString();
+			}
+			else
+			{
+				this.CloseMenu();
+			}
 		}
 		else
 		{
@@ -188,6 +206,7 @@ public class CanvasManager : MonoBehaviour {
 		if(!this.lobbyPanel.activeSelf && this.isReadyForLobby)
 		{
 			this.lobbyPanel.SetActive(true);
+			this.isReadyForLobby = false;
 		}
 	}
 

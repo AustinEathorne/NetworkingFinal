@@ -8,7 +8,7 @@ public class GameManager : NetworkManager
 	public struct PlayerInfo
 	{
 		public int connectionId;
-		public int playerObjectId;
+		public NetworkInstanceId playerObjectId;
 		public string name;
 		public Color colour;
 	}
@@ -80,6 +80,7 @@ public class GameManager : NetworkManager
 
 		// Register Handlers
 		this.client.RegisterHandler(CustomMsgType.Lobby, this.canvasManager.OnLobbyUpdateReceived);
+		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
 
 		Debug.Log("Client created");
 		yield return null;
@@ -224,9 +225,23 @@ public class GameManager : NetworkManager
 
 	#region Start Game
 
-	// Client - tell the server to spawn a player for them
+	// Server - tell the clients the game has started
 	public void StartGame()
 	{
+		StartGameMessage msg = new StartGameMessage();
+		NetworkServer.SendToAll(CustomMsgType.StartGame, msg);
+
+	}
+
+	// Client - tell the server to spawn a player for them
+	public void OnGameStart(NetworkMessage _networkMessage)
+	{
+		// Close Menu UI
+		//this.canvasManager.CloseMenu();
+
+		//Read msg
+
+		// Add player
 		ClientScene.AddPlayer(client.connection, 0);
 	}
 
@@ -241,7 +256,14 @@ public class GameManager : NetworkManager
 		GameObject player = Instantiate(this.playerPrefab) as GameObject;
 		player.GetComponent<MeshRenderer>().material.color = Random.ColorHSV();
 		player.transform.position = new Vector3(Random.Range(-10.0f, 10.0f), Random.Range(-10.0f, 10.0f), Random.Range(-10.0f, 10.0f));
+
 		NetworkServer.AddPlayerForConnection(_networkConnection, player, _playerControllerId);
+
+		PlayerInfo temp = playerInfoList[ _networkConnection.connectionId - 1];
+		temp.playerObjectId = player.GetComponent<NetworkIdentity>().netId;
+		playerInfoList[ _networkConnection.connectionId - 1] = temp;
+
+		Debug.Log("Player: " + _networkConnection.connectionId.ToString() + " has obj Id: " + temp.playerObjectId.ToString());
 	}
 
 	#endregion
@@ -269,6 +291,7 @@ public class GameManager : NetworkManager
 			{
 				Debug.Log("START GAME");
 				this.isGameStarted = true;
+				this.StartGame();
 			}
 
 			// Send lobby update
@@ -328,6 +351,7 @@ public class CustomMsgType
 	public static short PlayerInfo = MsgType.Highest + 1;
 	public static short Lobby = MsgType.Highest + 2;
 	public static short ReadyUp = MsgType.Highest + 3;
+	public static short StartGame = MsgType.Highest + 4;
 }
 
 // Client to Server
@@ -353,6 +377,27 @@ public class LobbyMessage : MessageBase
 public class ReadyUpMessage : MessageBase
 {
 	public bool isReady;
+}
+
+// Server to client
+public class StartGameMessage : MessageBase
+{
+	public string name;
+	public Color colour;
+}
+
+// Client to Server
+public class MoveMessage : MessageBase
+{
+	public Vector3 position;
+	public Vector3 rotation;
+}
+
+// Server to client
+public class TransformMessage : MessageBase
+{
+	public Vector3 position;
+	public Vector3 rotation;
 }
 
 #endregion

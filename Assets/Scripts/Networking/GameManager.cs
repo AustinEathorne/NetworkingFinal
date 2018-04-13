@@ -13,12 +13,21 @@ public class GameManager : NetworkManager
 		public Color colour;
 	}
 
-	// server
+	// Server
+	private float lobbyCountDownStartTime = 10.0f;
+	private float lobbyCountDownTime = 10.0f;
+	private int lastLobbyCountDownTimeSent = 10;
+	private bool isLobbyTimerCountingDown = false;
+
 	private List<PlayerInfo> playerInfoList; // used by server to update clients (connectiond id, player info)
 	private List<bool> isClientConnected;
 	private List<bool> isPlayerReadyList;
 
-	// client
+	private bool hasMadeSelection = false;
+	private bool isGameStarted = false;
+
+
+	// Client
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
 	private bool isClientReady = false; // used by the client when ready to play the game 'ready up'
 
@@ -56,6 +65,8 @@ public class GameManager : NetworkManager
 		NetworkServer.RegisterHandler(CustomMsgType.PlayerInfo, this.OnPlayerInfoReceived);
 		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
 
+		this.hasMadeSelection = true;
+
 		Debug.Log("Server created");
 		yield return null;
 	}
@@ -68,8 +79,7 @@ public class GameManager : NetworkManager
 		NetworkManager.singleton.StartClient();
 
 		// Register Handlers
-		this.client.RegisterHandler(CustomMsgType.UpdateLobby, this.canvasManager.OnLobbyUpdateReceived);
-		this.client.RegisterHandler(CustomMsgType.UpdatePlayerReady, this.canvasManager.OnPlayerReadyStatusReceived);
+		this.client.RegisterHandler(CustomMsgType.Lobby, this.canvasManager.OnLobbyUpdateReceived);
 
 		Debug.Log("Client created");
 		yield return null;
@@ -145,7 +155,7 @@ public class GameManager : NetworkManager
 	private void SendLobbyUpdates()
 	{
 		// Create msg for all clients
-		UpdateLobbyMessage msg = new UpdateLobbyMessage();
+		LobbyMessage msg = new LobbyMessage();
 		//msg.connectionId = _networkMessage.conn.connectionId;
 
 		string[] names = new string[maxConnections];
@@ -171,10 +181,12 @@ public class GameManager : NetworkManager
 		msg.isPlayerConnected = this.isClientConnected.ToArray();
 		msg.isReadyList = this.isPlayerReadyList.ToArray();
 
-		// Send to all
-		NetworkServer.SendToAll(CustomMsgType.UpdateLobby, msg);
-	}
+		msg.isLobbyCountingDown = this.isLobbyTimerCountingDown;
+		msg.countDownTime = this.lastLobbyCountDownTimeSent;
 
+		// Send to all
+		NetworkServer.SendToAll(CustomMsgType.Lobby, msg);
+	}
 
 	// Client
 	public void SendReadyUpMessage()
@@ -202,15 +214,10 @@ public class GameManager : NetworkManager
 		{
 			Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + " is NOT ready");
 			this.isPlayerReadyList[_networkMessage.conn.connectionId - 1] = false;
+			this.isLobbyTimerCountingDown = false;
 		}
 
 		this.SendLobbyUpdates();
-
-		//UpdatePlayerReadyStatusMessage msg = new UpdatePlayerReadyStatusMessage();
-		//msg.isReadyList = this.isPlayerReadyList.ToArray();
-
-		// Send to all
-		//NetworkServer.SendToAll(CustomMsgType.UpdatePlayerReady, msg);
 	}
 
 	#endregion
@@ -238,6 +245,80 @@ public class GameManager : NetworkManager
 	}
 
 	#endregion
+
+	#region Update
+
+	private void Update()
+	{
+		this.NetworkLobbyUpdate();
+	}
+
+	private void NetworkLobbyUpdate()
+	{
+		if(!Network.isClient && !hasMadeSelection)
+			return;
+
+		if(this.isGameReady() && !this.isGameStarted)
+		{
+			//Debug.Log("COUNTING DOWN: " + this.lobbyCountDownTime.ToString());
+			this.isLobbyTimerCountingDown = true;
+			this.lobbyCountDownTime -= Time.deltaTime;
+
+			// Start the game
+			if(this.lobbyCountDownTime <= 0.0f)
+			{
+				Debug.Log("START GAME");
+				this.isGameStarted = true;
+			}
+
+			// Send lobby update
+			if(Mathf.Floor(this.lobbyCountDownTime) < this.lastLobbyCountDownTimeSent)
+			{
+				this.lastLobbyCountDownTimeSent = (int)Mathf.Floor(this.lobbyCountDownTime);
+				this.SendLobbyUpdates();
+			}
+		}
+		else
+		{
+			this.lobbyCountDownTime = this.lobbyCountDownStartTime;
+			this.lastLobbyCountDownTimeSent = (int)this.lobbyCountDownStartTime;
+			this.isLobbyTimerCountingDown = false;
+		}
+	}
+
+	private bool isGameReady()
+	{
+		int readyPlayers = 0;
+
+		// Get number of ready players
+		for(int i = 0; i < this.isPlayerReadyList.Count; i++)
+		{
+			if(this.isPlayerReadyList[i])
+			{
+				readyPlayers++;
+			}
+		}
+
+		int numClients = 0;
+
+		// Get number of connected clients
+		for(int i = 0; i < this.isClientConnected.Count; i++)
+		{
+			if(this.isClientConnected[i])
+			{
+				numClients++;
+			}
+		}
+
+		// Check for at least two players and that everyone is ready
+		if(readyPlayers > 1 && readyPlayers == numClients)
+			return true;
+		else
+			return false;
+
+	}
+		
+	#endregion
 }
 
 #region Messages
@@ -245,9 +326,8 @@ public class GameManager : NetworkManager
 public class CustomMsgType
 {
 	public static short PlayerInfo = MsgType.Highest + 1;
-	public static short UpdateLobby = MsgType.Highest + 2;
+	public static short Lobby = MsgType.Highest + 2;
 	public static short ReadyUp = MsgType.Highest + 3;
-	public static short UpdatePlayerReady = MsgType.Highest + 4;
 }
 
 // Client to Server
@@ -258,25 +338,21 @@ public class RegisterPlayerInfoMessage : MessageBase
 }
 
 // Server to Clients
-public class UpdateLobbyMessage : MessageBase
+public class LobbyMessage : MessageBase
 {
 	public int connectionId;
 	public bool[] isPlayerConnected;
 	public bool[] isReadyList;
 	public string[] playerNames;
 	public Color[] playerColours;
+	public bool isLobbyCountingDown = false;
+	public int countDownTime;
 }
 
 // Client to Server
 public class ReadyUpMessage : MessageBase
 {
 	public bool isReady;
-}
-
-// Server to Clients
-public class UpdatePlayerReadyStatusMessage : MessageBase
-{
-	public bool[] isReadyList;
 }
 
 #endregion

@@ -46,6 +46,8 @@ public class CanvasManager : MonoBehaviour {
 	private List<Sprite> playerReadySprites;
 	[SerializeField]
 	private Text readyButtonText;
+	[SerializeField]
+	private Text timeText;
 
 	private bool isReadyForLobby = false;
 
@@ -139,7 +141,7 @@ public class CanvasManager : MonoBehaviour {
 		Debug.Log("Lobby update received");
 
 		// Read msg
-		UpdateLobbyMessage msg = _networkMessage.ReadMessage<UpdateLobbyMessage>();
+		LobbyMessage msg = _networkMessage.ReadMessage<LobbyMessage>();
 		Debug.Log("Player " + msg.connectionId.ToString() + " has connected");
 
 		// check for players connected
@@ -170,28 +172,22 @@ public class CanvasManager : MonoBehaviour {
 			}
 		}
 
+		// Check to update time text
+		if(msg.isLobbyCountingDown)
+		{
+			// Enable text & update with the time
+			this.timeText.enabled = true;
+			this.timeText.text = msg.countDownTime > -1 ? msg.countDownTime.ToString() : "GOOD LUCK!";
+		}
+		else
+		{
+			this.timeText.enabled = false;
+		}
+
 		// Check if this is the first time receiving the panel update, if so, turn on the panel
 		if(!this.lobbyPanel.activeSelf && this.isReadyForLobby)
 		{
 			this.lobbyPanel.SetActive(true);
-		}
-	}
-
-	// Client - Update player ready status icons
-	public void OnPlayerReadyStatusReceived(NetworkMessage _networkMessage)
-	{
-		UpdatePlayerReadyStatusMessage msg = _networkMessage.ReadMessage<UpdatePlayerReadyStatusMessage>();
-
-		for(int i = 0; i < msg.isReadyList.Length; i++)
-		{
-			if(msg.isReadyList[i])
-			{
-				this.playerReadyIcons[i].sprite = this.playerReadySprites[1]; // set icon to ready
-			}
-			else
-			{
-				this.playerReadyIcons[i].sprite = this.playerReadySprites[0]; // set icon to not ready
-			}
 		}
 	}
 

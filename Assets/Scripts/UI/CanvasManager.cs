@@ -22,7 +22,6 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private GameObject lobbyPanel;
 
-
 	[Header("Colour Select")]
 	[SerializeField]
 	private MeshRenderer menuPlayerMeshRenderer;
@@ -41,6 +40,14 @@ public class CanvasManager : MonoBehaviour {
 	private List<Image> playerColourImages;
 	[SerializeField]
 	private List<Text> playerNameTexts;
+	[SerializeField]
+	private List<Image> playerReadyIcons;
+	[SerializeField]
+	private List<Sprite> playerReadySprites;
+	[SerializeField]
+	private Text readyButtonText;
+
+	private bool isReadyForLobby = false;
 
 
 	private void Start()
@@ -116,6 +123,9 @@ public class CanvasManager : MonoBehaviour {
 
 			// Turn off panel
 			this.namePanel.SetActive(false);
+
+			// Allow panel to be turned on
+			this.isReadyForLobby = true;
 		}
 	}
 
@@ -123,7 +133,7 @@ public class CanvasManager : MonoBehaviour {
 
 	#region Lobby
 
-	// Client
+	// Client - Update player panels when a player joins/leaves - TODO: player leaving
 	public void OnLobbyUpdateReceived(NetworkMessage _networkMessage)
 	{
 		Debug.Log("Lobby update received");
@@ -132,6 +142,7 @@ public class CanvasManager : MonoBehaviour {
 		UpdateLobbyMessage msg = _networkMessage.ReadMessage<UpdateLobbyMessage>();
 		Debug.Log("Player " + msg.connectionId.ToString() + " has connected");
 
+		// check for players connected
 		for(int i = 0; i < 4; i++)
 		{
 			if(msg.isPlayerConnected[i])
@@ -146,24 +157,48 @@ public class CanvasManager : MonoBehaviour {
 			}
 		}
 
+		// Check ready up status
+		for(int i = 0; i < msg.isReadyList.Length; i++)
+		{
+			if(msg.isReadyList[i])
+			{
+				this.playerReadyIcons[i].sprite = this.playerReadySprites[1]; // set icon to ready
+			}
+			else
+			{
+				this.playerReadyIcons[i].sprite = this.playerReadySprites[0]; // set icon to not ready
+			}
+		}
+
 		// Check if this is the first time receiving the panel update, if so, turn on the panel
-		if(!this.lobbyPanel.activeSelf)
+		if(!this.lobbyPanel.activeSelf && this.isReadyForLobby)
 		{
 			this.lobbyPanel.SetActive(true);
 		}
 	}
 
-	// C
-	private void OnPlayerJoinLobby()
+	// Client - Update player ready status icons
+	public void OnPlayerReadyStatusReceived(NetworkMessage _networkMessage)
 	{
-		// update lobby board with msg details (bool isPlayerConnected(to show their panel), name, colour)
+		UpdatePlayerReadyStatusMessage msg = _networkMessage.ReadMessage<UpdatePlayerReadyStatusMessage>();
 
+		for(int i = 0; i < msg.isReadyList.Length; i++)
+		{
+			if(msg.isReadyList[i])
+			{
+				this.playerReadyIcons[i].sprite = this.playerReadySprites[1]; // set icon to ready
+			}
+			else
+			{
+				this.playerReadyIcons[i].sprite = this.playerReadySprites[0]; // set icon to not ready
+			}
+		}
 	}
-		
-	// C
-	private void OnPlayerLeftLobby()
+
+	public void UpdateReadyButtonText(bool _isReady)
 	{
-		// update lobby board with msg details (bool isPlayerConnected(to show their panel), name, colour)
+		string txt = _isReady ? "UNREADY" : "READY";
+		this.readyButtonText.text = txt;
 	}
 
 	#endregion

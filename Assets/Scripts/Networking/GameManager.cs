@@ -159,7 +159,7 @@ public class GameManager : NetworkManager
 		else
 		{
 			Debug.Log("Lost connection: " + _connection.connectionId.ToString());
-			this.OnLostClientMenu(_connection);
+			this.StartCoroutine(this.OnLostClientMenu(_connection));
 		}
 	}
 
@@ -174,7 +174,15 @@ public class GameManager : NetworkManager
 	{
 		Debug.Log("Attempting disconnect");
 		NetworkManager.singleton.StopClient();
-		yield return new WaitForSeconds(3.0f); //  buffer time to disconnect
+		this.canvasManager.DisplayLeaving();
+
+		this.clientPlayerInfo = new PlayerInfo();
+		this.isClientReady = false;
+
+		// update button text
+		this.canvasManager.UpdateReadyButtonText(false);
+
+		yield return new WaitForSeconds(5.0f); //  buffer time to disconnect
 		Debug.Log("Disconnected succefully");
 		this.canvasManager.OpenMenu();
 	}
@@ -206,7 +214,7 @@ public class GameManager : NetworkManager
 			if(this.playerInfoList[i].connectionId == _networkMessage.conn.connectionId)
 			{
 				// update the player info list for the sending client
-				PlayerInfo temp = this.playerInfoList[(_networkMessage.conn.connectionId - 1)];
+				PlayerInfo temp = this.playerInfoList[i];
 				temp.name = infoMsg.name;
 				temp.colour = infoMsg.colour;
 				this.playerInfoList[i] = temp;
@@ -233,15 +241,26 @@ public class GameManager : NetworkManager
 	{
 		ReadyUpMessage incomingMsg = _networkMessage.ReadMessage<ReadyUpMessage>();
 
+		// Find player in our info list
+		for(int i = 0; i < this.maxConnections; i++)
+		{
+			if(this.playerInfoList[i].connectionId == _networkMessage.conn.connectionId)
+			{
+				// Set our ready bool in our list
+				this.isPlayerReadyList[i] = incomingMsg.isReady;
+				Debug.Log("Player Index: " + i.ToString() + " is " + incomingMsg.isReady.ToString() + "!!!!!!!!");
+			}
+
+			Debug.Log("Index: " + i.ToString() + " is " +this.isPlayerReadyList[i].ToString());
+		}
+
 		if(incomingMsg.isReady)
 		{
 			Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + " is ready");
-			this.isPlayerReadyList[_networkMessage.conn.connectionId - 1] = true;
 		}
 		else
 		{
 			Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + " is NOT ready");
-			this.isPlayerReadyList[_networkMessage.conn.connectionId - 1] = false;
 			this.isLobbyTimerCountingDown = false;
 		}
 
@@ -280,7 +299,7 @@ public class GameManager : NetworkManager
 	}
 
 	// Server
-	private void OnLostClientMenu(NetworkConnection _connection)
+	private IEnumerator OnLostClientMenu(NetworkConnection _connection)
 	{
 		bool foundPlayer = false;
 
@@ -291,7 +310,6 @@ public class GameManager : NetworkManager
 			if(this.playerInfoList[i].connectionId == _connection.connectionId && foundPlayer == false)
 			{
 				foundPlayer = true;
-
 			}
 
 			// Make sure we're not on the last element
@@ -309,15 +327,26 @@ public class GameManager : NetworkManager
 			else
 			{
 				// Set last element
-				this.playerInfoList[i] = new PlayerInfo();
-				this.isClientConnected[i] = false;
-				this.isClientSlotTaken[i] = false;
-				this.isPlayerReadyList[i] = false;
+				if(foundPlayer)
+				{
+					this.playerInfoList[i] = new PlayerInfo();
+					this.isClientConnected[i] = false;
+					this.isClientSlotTaken[i] = false;
+					this.isPlayerReadyList[i] = false;
+				}
+				else
+				{
+					Debug.Log("FUCKKKKKKKDHSJBFGKLDSHBGF");
+				}
 			}
 		}
 
+		//yield return new WaitForSeconds(0.5f);
+
 		// send lobby updates
 		this.SendLobbyUpdates();
+
+		yield return null;
 	}
 
 	#endregion

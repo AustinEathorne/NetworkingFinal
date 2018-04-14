@@ -21,6 +21,8 @@ public class CanvasManager : MonoBehaviour {
 	private GameObject namePanel;
 	[SerializeField]
 	private GameObject lobbyPanel;
+	[SerializeField]
+	private GameObject disconnectPanel;
 
 	[Header("Colour Select")]
 	[SerializeField]
@@ -57,15 +59,29 @@ public class CanvasManager : MonoBehaviour {
 		this.initialPanel.SetActive(true);
 	}
 
-	public void OpenMenu()
+	public void DisplayLeaving()
 	{
 		Debug.Log("Open Menu!");
 
-		this.initialPanel.SetActive(true);
+		// set display msg active
+
 		this.playerPreviewPanel.SetActive(false);
 		this.colourPanel.SetActive(false);
 		this.namePanel.SetActive(false);
 		this.lobbyPanel.SetActive(false);
+		this.initialPanel.SetActive(false);
+		this.disconnectPanel.SetActive(true);
+	}
+
+	public void OpenMenu()
+	{
+		Debug.Log("Open Menu!");
+
+		this.playerPreviewPanel.SetActive(false);
+		this.colourPanel.SetActive(false);
+		this.namePanel.SetActive(false);
+		this.lobbyPanel.SetActive(false);
+		this.disconnectPanel.SetActive(false);
 		this.initialPanel.SetActive(true);
 	}
 

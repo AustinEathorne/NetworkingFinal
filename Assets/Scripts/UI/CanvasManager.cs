@@ -25,6 +25,11 @@ public class CanvasManager : MonoBehaviour {
 	private GameObject lobbyPanel;
 	[SerializeField]
 	private GameObject disconnectPanel;
+	[SerializeField]
+	private GameObject menuBg;
+	[SerializeField]
+	private GameObject coolSpinningThing;
+
 
 	[Header("Colour Select")]
 	[SerializeField]
@@ -101,6 +106,8 @@ public class CanvasManager : MonoBehaviour {
 		this.colourPanel.SetActive(false);
 		this.namePanel.SetActive(false);
 		this.lobbyPanel.SetActive(false);
+		this.coolSpinningThing.SetActive(false);
+		this.menuBg.SetActive(false);
 	}
 
 	public void OpenServerPanel()

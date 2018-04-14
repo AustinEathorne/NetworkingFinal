@@ -12,7 +12,7 @@ public class GameManager : NetworkManager
 	{
 		public int connectionId;
 		public int playerIndex; // player 0 to 3
-		public NetworkInstanceId playerObjectId;
+		public uint playerObjectId;
 		public string name;
 		public Color colour;
 	}
@@ -30,7 +30,10 @@ public class GameManager : NetworkManager
 
 	private bool hasMadeSelection = false;
 	private bool isGameStarted = false; // TODO: change to enum for states
+	private bool hasInitializedPlayers = false;
 
+	[SerializeField]
+	private List<Transform> spawnTransforms;
 
 	// Client
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
@@ -39,6 +42,8 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private CanvasManager canvasManager;
 
+	[SerializeField]
+	private List<Camera> menuCameras;
 
 	#region Setup/Create
 
@@ -92,6 +97,7 @@ public class GameManager : NetworkManager
 		// Register Handlers
 		this.client.RegisterHandler(CustomMsgType.Lobby, this.canvasManager.OnLobbyUpdateReceived);
 		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
+		this.client.RegisterHandler(CustomMsgType.InitializePlayer, this.OnPlayerInitialize);
 
 		Debug.Log("Client created");
 		yield return null;
@@ -372,7 +378,6 @@ public class GameManager : NetworkManager
 	{
 		StartGameMessage msg = new StartGameMessage();
 		NetworkServer.SendToAll(CustomMsgType.StartGame, msg);
-
 	}
 
 	// Client - tell the server to spawn a player for them
@@ -380,11 +385,14 @@ public class GameManager : NetworkManager
 	{
 		// Close Menu UI
 		//this.canvasManager.CloseMenu();
-
 		//Read msg
 
 		// Add player
 		ClientScene.AddPlayer(client.connection, 0);
+
+		// Turn off menu cameras
+		this.menuCameras[0].gameObject.SetActive(false);
+		this.menuCameras[1].gameObject.SetActive(false);
 	}
 
 	#endregion
@@ -396,32 +404,37 @@ public class GameManager : NetworkManager
 	{
 		// Instantiate player prefab on all clients with requested client's authority
 		GameObject player = Instantiate(this.playerPrefab) as GameObject;
-		player.GetComponent<MeshRenderer>().material.color = Random.ColorHSV();
-		player.transform.position = new Vector3(Random.Range(-10.0f, 10.0f), Random.Range(-10.0f, 10.0f), Random.Range(-10.0f, 10.0f));
-
 		NetworkServer.AddPlayerForConnection(_networkConnection, player, _playerControllerId);
 
 		//TODO: find player info that matches network connection inour player info list, then get the net id
-
-		PlayerInfo temp = playerInfoList[ _networkConnection.connectionId - 1];
-		temp.playerObjectId = player.GetComponent<NetworkIdentity>().netId;
-		playerInfoList[ _networkConnection.connectionId - 1] = temp;
-
-		Debug.Log("Player: " + _networkConnection.connectionId.ToString() + " has obj Id: " + temp.playerObjectId.ToString());
+		for(int i = 0; i < this.maxConnections; i++)
+		{
+			if(this.playerInfoList[i].connectionId == _networkConnection.connectionId)
+			{
+				PlayerInfo temp = playerInfoList[i];
+				temp.playerObjectId = player.GetComponent<NetworkIdentity>().netId.Value;
+				playerInfoList[i] = temp;
+				player.GetComponent<MeshRenderer>().material.color = playerInfoList[i].colour;
+				Debug.Log("Player: " + _networkConnection.connectionId.ToString() + " has obj Id: " + temp.playerObjectId.ToString());
+			}
+		}
 	}
 
 	#endregion
 
 	#region Update
 
+	// Server
 	private void Update()
 	{
 		this.NetworkLobbyUpdate();
+		this.NetworkGameUpdate();
 	}
 
+	// Server
 	private void NetworkLobbyUpdate()
 	{
-		if(!Network.isClient && !hasMadeSelection)
+		if(Network.isClient || !hasMadeSelection)
 			return;
 
 		if(this.isGameReady() && !this.isGameStarted)
@@ -445,7 +458,7 @@ public class GameManager : NetworkManager
 				this.SendLobbyUpdates("");
 			}
 		}
-		else
+		else if (!this.isGameStarted)
 		{
 			this.lobbyCountDownTime = this.lobbyCountDownStartTime;
 			this.lastLobbyCountDownTimeSent = (int)this.lobbyCountDownStartTime;
@@ -453,6 +466,20 @@ public class GameManager : NetworkManager
 		}
 	}
 
+	// Server
+	private void NetworkGameUpdate()
+	{
+		if(Network.isClient || !this.isGameStarted)
+			return;
+
+		if(!this.hasInitializedPlayers)
+		{
+			this.hasInitializedPlayers = true;
+			this.StartCoroutine(this.SetUpGame());
+		}
+	}
+
+	// Server
 	private bool isGameReady()
 	{
 		int readyPlayers = 0;
@@ -486,6 +513,55 @@ public class GameManager : NetworkManager
 	}
 		
 	#endregion
+
+	#region Game
+
+	// Server
+	private IEnumerator SetUpGame()
+	{
+		Debug.Log("Set up Game");
+		yield return new WaitForSeconds(1.0f); // just in case
+
+		// Shuffle Spawn positions
+		for(int i = 0; i < this.spawnTransforms.Count; i++)
+		{
+			int ran = (int)Random.Range(0, spawnTransforms.Count);
+			Transform temp = spawnTransforms[i];
+			spawnTransforms[i] = spawnTransforms[ran];
+			spawnTransforms[ran] = temp;
+		}
+
+
+		// Send msg to all clients for each player
+		Debug.Log("Send initialize update to " +  this.numPlayers.ToString() + " players");
+
+		for(int i = 0; i < this.numPlayers; i++)
+		{
+			InitializePlayerMessage msg = new InitializePlayerMessage();
+			msg.name = this.playerInfoList[i].name;
+			msg.colour = this.playerInfoList[i].colour;
+			msg.objectId = (int)this.playerInfoList[i].playerObjectId;
+			msg.spawnPosition = this.spawnTransforms[i].position;
+			NetworkServer.SendToAll(CustomMsgType.InitializePlayer, msg);
+		}
+
+		yield return null;
+	}
+
+	// Client
+	private void OnPlayerInitialize(NetworkMessage _networkMessage)
+	{
+		// Read msg
+		InitializePlayerMessage msg = _networkMessage.ReadMessage<InitializePlayerMessage>();
+
+
+
+		// Send msg to player object
+		Player tempPlayer = NetworkHelper.GetObjectByNetIdValue<Player>((uint)msg.objectId, false);
+		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition);
+	}
+
+	#endregion
 }
 
 #endregion
@@ -498,6 +574,7 @@ public class CustomMsgType
 	public static short Lobby = MsgType.Highest + 2;
 	public static short ReadyUp = MsgType.Highest + 3;
 	public static short StartGame = MsgType.Highest + 4;
+	public static short InitializePlayer = MsgType.Highest + 5;
 }
 
 // Client to Server
@@ -527,11 +604,20 @@ public class ReadyUpMessage : MessageBase
 	public bool isReady;
 }
 
-// Server to client
+// Server to clients
 public class StartGameMessage : MessageBase
+{
+	public string msg;
+}
+
+// Server to clients
+// Server to clients
+public class InitializePlayerMessage : MessageBase
 {
 	public string name;
 	public Color colour;
+	public int objectId;
+	public Vector3 spawnPosition;
 }
 
 // Client to Server
@@ -546,6 +632,39 @@ public class TransformMessage : MessageBase
 {
 	public Vector3 position;
 	public Vector3 rotation;
+}
+
+#endregion
+
+#region Helper
+
+public static class NetworkHelper
+{
+	public static T GetObjectByNetIdValue<T>(uint _value, bool isServer)
+	{
+		NetworkInstanceId netInstanceId = new NetworkInstanceId(_value);
+		NetworkIdentity foundNetworkIdentity = null;
+
+		if(isServer)
+		{
+			NetworkServer.objects.TryGetValue(netInstanceId, out foundNetworkIdentity);
+		}
+		else
+		{
+			ClientScene.objects.TryGetValue(netInstanceId, out foundNetworkIdentity);
+		}
+
+		if(foundNetworkIdentity)
+		{
+			T foundObject = foundNetworkIdentity.GetComponent<T>();
+			if(foundObject != null)
+			{
+				return foundObject;
+			}
+		}
+
+		return default(T);
+	}
 }
 
 #endregion

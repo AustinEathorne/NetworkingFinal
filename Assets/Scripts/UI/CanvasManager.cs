@@ -56,6 +56,8 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private Text readyButtonText;
 	[SerializeField]
+	private Text readyButtonText2;
+	[SerializeField]
 	private Text timeText;
 	[SerializeField]
 	private Text lobbyMsgText;
@@ -268,8 +270,9 @@ public class CanvasManager : MonoBehaviour {
 
 	public void UpdateReadyButtonText(bool _isReady)
 	{
-		string txt = _isReady ? "UNREADY" : "READY";
+		string txt = _isReady ? "UNrEADY" : "rEADY";
 		this.readyButtonText.text = txt;
+		this.readyButtonText2.text = txt;
 	}
 
 	public void OnLeaveLobby()

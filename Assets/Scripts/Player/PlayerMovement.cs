@@ -5,8 +5,6 @@ using UnityEngine.Networking;
 
 public class PlayerMovement : NetworkBehaviour
 {
-
-
 	void Update()
 	{
 		if(!isLocalPlayer)

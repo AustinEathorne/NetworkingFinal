@@ -25,6 +25,11 @@ public class CanvasManager : MonoBehaviour {
 	private GameObject lobbyPanel;
 	[SerializeField]
 	private GameObject disconnectPanel;
+	[SerializeField]
+	private GameObject menuBg;
+	[SerializeField]
+	private GameObject coolSpinningThing;
+
 
 	[Header("Colour Select")]
 	[SerializeField]
@@ -50,6 +55,8 @@ public class CanvasManager : MonoBehaviour {
 	private List<Sprite> playerReadySprites;
 	[SerializeField]
 	private Text readyButtonText;
+	[SerializeField]
+	private Text readyButtonText2;
 	[SerializeField]
 	private Text timeText;
 	[SerializeField]
@@ -101,6 +108,8 @@ public class CanvasManager : MonoBehaviour {
 		this.colourPanel.SetActive(false);
 		this.namePanel.SetActive(false);
 		this.lobbyPanel.SetActive(false);
+		this.coolSpinningThing.SetActive(false);
+		this.menuBg.SetActive(false);
 	}
 
 	public void OpenServerPanel()
@@ -261,8 +270,9 @@ public class CanvasManager : MonoBehaviour {
 
 	public void UpdateReadyButtonText(bool _isReady)
 	{
-		string txt = _isReady ? "UNREADY" : "READY";
+		string txt = _isReady ? "UNrEADY" : "rEADY";
 		this.readyButtonText.text = txt;
+		this.readyButtonText2.text = txt;
 	}
 
 	public void OnLeaveLobby()

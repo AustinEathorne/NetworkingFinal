@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour {
 
+	public bool isInputEnabled = false;
+
 	// Use this for initialization
 	void Start () {
 		

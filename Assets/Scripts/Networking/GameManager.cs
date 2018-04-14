@@ -208,6 +208,8 @@ public class GameManager : NetworkManager
 		//Read msg with player info
 		RegisterPlayerInfoMessage infoMsg = _networkMessage.ReadMessage<RegisterPlayerInfoMessage>();
 
+		string lobbyMsg = "";
+
 		// find the sending client's player in our info list by connection id
 		for(int i = 0; i < this.maxConnections; i++)
 		{
@@ -218,10 +220,14 @@ public class GameManager : NetworkManager
 				temp.name = infoMsg.name;
 				temp.colour = infoMsg.colour;
 				this.playerInfoList[i] = temp;
+
+				lobbyMsg = temp.name + " has joined";
 			}
 		}
 
-		this.SendLobbyUpdates();
+
+
+		this.SendLobbyUpdates(lobbyMsg);
 	}
 
 	// Client
@@ -241,6 +247,8 @@ public class GameManager : NetworkManager
 	{
 		ReadyUpMessage incomingMsg = _networkMessage.ReadMessage<ReadyUpMessage>();
 
+		string lobbyMsg = "";
+
 		// Find player in our info list
 		for(int i = 0; i < this.maxConnections; i++)
 		{
@@ -248,27 +256,28 @@ public class GameManager : NetworkManager
 			{
 				// Set our ready bool in our list
 				this.isPlayerReadyList[i] = incomingMsg.isReady;
-				Debug.Log("Player Index: " + i.ToString() + " is " + incomingMsg.isReady.ToString() + "!!!!!!!!");
+
+				if(incomingMsg.isReady)
+				{
+					//Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + " is ready");
+					lobbyMsg = this.playerInfoList[i].name + " is ready";
+				}
+				else
+				{
+					//Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + " is NOT ready");
+					lobbyMsg = this.playerInfoList[i].name + " is not ready";
+					this.isLobbyTimerCountingDown = false;
+				}
 			}
-
-			Debug.Log("Index: " + i.ToString() + " is " +this.isPlayerReadyList[i].ToString());
 		}
 
-		if(incomingMsg.isReady)
-		{
-			Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + " is ready");
-		}
-		else
-		{
-			Debug.Log("Player " + _networkMessage.conn.connectionId.ToString() + " is NOT ready");
-			this.isLobbyTimerCountingDown = false;
-		}
 
-		this.SendLobbyUpdates();
+
+		this.SendLobbyUpdates(lobbyMsg);
 	}
 
 	//Server
-	private void SendLobbyUpdates()
+	private void SendLobbyUpdates(string _lobbyMsg)
 	{
 		// Create msg for all clients
 		LobbyMessage msg = new LobbyMessage();
@@ -294,6 +303,8 @@ public class GameManager : NetworkManager
 		msg.isLobbyCountingDown = this.isLobbyTimerCountingDown;
 		msg.countDownTime = this.lastLobbyCountDownTimeSent;
 
+		msg.lobbyMsg = _lobbyMsg;
+
 		// Send to all
 		NetworkServer.SendToAll(CustomMsgType.Lobby, msg);
 	}
@@ -303,6 +314,8 @@ public class GameManager : NetworkManager
 	{
 		bool foundPlayer = false;
 
+		string lobbyMsg = "";
+
 		// Shift player info in list
 		for(int i = 0; i < this.maxConnections; i++)
 		{
@@ -310,6 +323,7 @@ public class GameManager : NetworkManager
 			if(this.playerInfoList[i].connectionId == _connection.connectionId && foundPlayer == false)
 			{
 				foundPlayer = true;
+				lobbyMsg = this.playerInfoList[i].name + " has left";
 			}
 
 			// Make sure we're not on the last element
@@ -344,7 +358,7 @@ public class GameManager : NetworkManager
 		//yield return new WaitForSeconds(0.5f);
 
 		// send lobby updates
-		this.SendLobbyUpdates();
+		this.SendLobbyUpdates(lobbyMsg);
 
 		yield return null;
 	}
@@ -428,7 +442,7 @@ public class GameManager : NetworkManager
 			if(Mathf.Floor(this.lobbyCountDownTime) < this.lastLobbyCountDownTimeSent)
 			{
 				this.lastLobbyCountDownTimeSent = (int)Mathf.Floor(this.lobbyCountDownTime);
-				this.SendLobbyUpdates();
+				this.SendLobbyUpdates("");
 			}
 		}
 		else
@@ -504,6 +518,7 @@ public class LobbyMessage : MessageBase
 	public Color[] playerColours;
 	public bool isLobbyCountingDown = false;
 	public int countDownTime;
+	public string lobbyMsg;
 }
 
 // Client to Server

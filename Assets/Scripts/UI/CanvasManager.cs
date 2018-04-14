@@ -50,6 +50,11 @@ public class CanvasManager : MonoBehaviour {
 	private Text readyButtonText;
 	[SerializeField]
 	private Text timeText;
+	[SerializeField]
+	private Text lobbyMsgText;
+	[SerializeField]
+	private float lobbyMsgUpTime;
+	private bool hasReceivedLobbyUpdateMsg = false;
 
 	private bool isReadyForLobby = false;
 
@@ -230,6 +235,14 @@ public class CanvasManager : MonoBehaviour {
 			this.timeText.enabled = false;
 		}
 
+		// Display lobby update msg
+		if(msg.lobbyMsg != "")
+		{
+			this.hasReceivedLobbyUpdateMsg = true;
+			this.lobbyMsgText.enabled = true;
+			this.lobbyMsgText.text = msg.lobbyMsg;
+		}
+
 		// Check if this is the first time receiving the panel update, if so, turn on the panel
 		if(!this.lobbyPanel.activeSelf && this.isReadyForLobby)
 		{
@@ -247,6 +260,25 @@ public class CanvasManager : MonoBehaviour {
 	public void OnLeaveLobby()
 	{
 		this.gameManager.StartCoroutine(this.gameManager.DisconnectClient());
+	}
+
+	public IEnumerator TurnOffLobbyUpdateText()
+	{
+		yield return new WaitForSeconds(this.lobbyMsgUpTime);
+		this.lobbyMsgText.enabled = false;
+	}
+
+	#endregion
+
+	#region Update
+
+	private void Update()
+	{
+		if(hasReceivedLobbyUpdateMsg)
+		{
+			this.hasReceivedLobbyUpdateMsg = false;
+			this.StartCoroutine(this.TurnOffLobbyUpdateText());
+		}
 	}
 
 	#endregion

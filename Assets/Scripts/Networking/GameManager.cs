@@ -45,6 +45,10 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private List<Camera> menuCameras;
 
+	// Client & Server
+	[SerializeField]
+	private GameObject levelParent;
+
 	#region Setup/Create
 
 	private IEnumerator SetupManager()
@@ -545,6 +549,9 @@ public class GameManager : NetworkManager
 			NetworkServer.SendToAll(CustomMsgType.InitializePlayer, msg);
 		}
 
+		// Turn on level
+		//this.levelParent.SetActive(true);
+
 		yield return null;
 	}
 
@@ -554,7 +561,11 @@ public class GameManager : NetworkManager
 		// Read msg
 		InitializePlayerMessage msg = _networkMessage.ReadMessage<InitializePlayerMessage>();
 
-
+		// Turn on level for this client
+		if(_networkMessage.conn.connectionId == client.connection.connectionId)
+		{
+			this.levelParent.SetActive(true);
+		}
 
 		// Send msg to player object
 		Player tempPlayer = NetworkHelper.GetObjectByNetIdValue<Player>((uint)msg.objectId, false);

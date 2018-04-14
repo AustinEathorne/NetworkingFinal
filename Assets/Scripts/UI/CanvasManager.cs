@@ -57,6 +57,18 @@ public class CanvasManager : MonoBehaviour {
 		this.initialPanel.SetActive(true);
 	}
 
+	public void OpenMenu()
+	{
+		Debug.Log("Open Menu!");
+
+		this.initialPanel.SetActive(true);
+		this.playerPreviewPanel.SetActive(false);
+		this.colourPanel.SetActive(false);
+		this.namePanel.SetActive(false);
+		this.lobbyPanel.SetActive(false);
+		this.initialPanel.SetActive(true);
+	}
+
 	public void CloseMenu()
 	{
 		Debug.Log("Close Menu!");
@@ -156,7 +168,7 @@ public class CanvasManager : MonoBehaviour {
 		//Debug.Log("Player " + msg.connectionId.ToString() + " has connected");
 
 		// check for players connected
-		for(int i = 0; i < 4; i++)
+		for(int i = 0; i < msg.isPlayerConnected.Length; i++)
 		{
 			if(msg.isPlayerConnected[i])
 			{
@@ -214,6 +226,11 @@ public class CanvasManager : MonoBehaviour {
 	{
 		string txt = _isReady ? "UNREADY" : "READY";
 		this.readyButtonText.text = txt;
+	}
+
+	public void OnLeaveLobby()
+	{
+		this.gameManager.StartCoroutine(this.gameManager.DisconnectClient());
 	}
 
 	#endregion

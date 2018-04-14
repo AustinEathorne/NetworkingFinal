@@ -2,12 +2,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
+
+#region Network/Game Manager
 
 public class GameManager : NetworkManager
 {
 	public struct PlayerInfo
 	{
 		public int connectionId;
+		public int playerIndex; // player 0 to 3
 		public NetworkInstanceId playerObjectId;
 		public string name;
 		public Color colour;
@@ -20,11 +24,12 @@ public class GameManager : NetworkManager
 	private bool isLobbyTimerCountingDown = false;
 
 	private List<PlayerInfo> playerInfoList; // used by server to update clients (connectiond id, player info)
+	private List<bool> isClientSlotTaken; //  for keeping clients ordered if a client drops
 	private List<bool> isClientConnected;
 	private List<bool> isPlayerReadyList;
 
 	private bool hasMadeSelection = false;
-	private bool isGameStarted = false;
+	private bool isGameStarted = false; // TODO: change to enum for states
 
 
 	// Client
@@ -40,6 +45,8 @@ public class GameManager : NetworkManager
 	private IEnumerator SetupManager()
 	{
 		this.playerInfoList = new List<PlayerInfo>();
+		for(int i = 0; i < maxConnections; i++)
+			this.playerInfoList.Add(new PlayerInfo());
 
 		this.isClientConnected = new List<bool>();
 		for(int i = 0; i < maxConnections; i++)
@@ -48,6 +55,10 @@ public class GameManager : NetworkManager
 		this.isPlayerReadyList = new List<bool>();
 		for(int i = 0; i < maxConnections; i++)
 			this.isPlayerReadyList.Add(false);
+
+		this.isClientSlotTaken = new List<bool>();
+		for(int i = 0; i < maxConnections; i++)
+			this.isClientSlotTaken.Add(false);
 
 		yield return null;
 	}
@@ -88,25 +99,42 @@ public class GameManager : NetworkManager
 
 	#endregion
 
-	#region Connect
+	#region Connect / Disconnect
 
-	// Server - when the client has connected
+	// Server - when a client connects
 	public override void OnServerConnect (NetworkConnection _networkConnection)
 	{
 		// Create new player info
-		PlayerInfo temp  = new PlayerInfo();
-		temp.connectionId = _networkConnection.connectionId;
+		PlayerInfo newPlayerInfo  = new PlayerInfo();
+
+		// Find an open slot to assign the player
+		for(int i = 0; i < this.maxConnections; i++)
+		{
+			if(this.isClientSlotTaken[i] == false)
+			{
+				// Set flags for client slot taken and connected client
+				this.isClientSlotTaken[i] = true;
+				this.isClientConnected[i] = true;
+
+				// Update player info
+				newPlayerInfo.connectionId = _networkConnection.connectionId;
+				newPlayerInfo.playerIndex = i;
+
+				// Add new player info to list
+				this.playerInfoList[i] = newPlayerInfo;
+
+				break;
+			}
+		}
 
 		// Add player info to the list
-		this.playerInfoList.Add(temp);
-
-		//TODO: update this... only works if no one drops from lobby
-		this.isClientConnected[(_networkConnection.connectionId - 1)] = true;
+		//this.playerInfoList.Add(newPlayerInfo);
+		//this.isClientConnected[(_networkConnection.connectionId - 1)] = true;
 
 		Debug.Log("Player " + _networkConnection.connectionId.ToString() + " has connected");
 	}
 
-	// Client - when the client has connected
+	// Client - when connected to a server
 	public override void OnClientConnect (NetworkConnection _connection)
 	{
 		// Ready client scene
@@ -118,6 +146,37 @@ public class GameManager : NetworkManager
 		this.canvasManager.colourPanel.SetActive(true);
 
 		Debug.Log("This client has connected");
+	}
+
+	// Server - when a client disconnects
+	public override void OnServerDisconnect (NetworkConnection _connection)
+	{
+		// Check where we are in the game
+		if(this.isGameStarted)
+		{
+			return;
+		}
+		else
+		{
+			Debug.Log("Lost connection: " + _connection.connectionId.ToString());
+			this.OnLostClientMenu(_connection);
+		}
+	}
+
+	// Client - when disconnected from a server
+	public override void OnClientDisconnect (NetworkConnection _connection)
+	{
+		base.OnClientDisconnect (_connection);
+	}
+
+	// Client - called when requesting a disconnect
+	public IEnumerator DisconnectClient()
+	{
+		Debug.Log("Attempting disconnect");
+		NetworkManager.singleton.StopClient();
+		yield return new WaitForSeconds(3.0f); //  buffer time to disconnect
+		Debug.Log("Disconnected succefully");
+		this.canvasManager.OpenMenu();
 	}
 
 	#endregion
@@ -141,52 +200,20 @@ public class GameManager : NetworkManager
 		//Read msg with player info
 		RegisterPlayerInfoMessage infoMsg = _networkMessage.ReadMessage<RegisterPlayerInfoMessage>();
 
-		// update the player info list for the sending client
-		PlayerInfo temp = this.playerInfoList[(_networkMessage.conn.connectionId - 1)];
-		temp.name = infoMsg.name;
-		temp.colour = infoMsg.colour;
-		this.playerInfoList[(_networkMessage.conn.connectionId - 1)] = temp;
+		// find the sending client's player in our info list by connection id
+		for(int i = 0; i < this.maxConnections; i++)
+		{
+			if(this.playerInfoList[i].connectionId == _networkMessage.conn.connectionId)
+			{
+				// update the player info list for the sending client
+				PlayerInfo temp = this.playerInfoList[(_networkMessage.conn.connectionId - 1)];
+				temp.name = infoMsg.name;
+				temp.colour = infoMsg.colour;
+				this.playerInfoList[i] = temp;
+			}
+		}
 
 		this.SendLobbyUpdates();
-
-		// update all client's lobby UI
-		Debug.Log("Updating " + this.playerInfoList.Count.ToString() + " clients' lobbies");
-	}
-	//Server
-	private void SendLobbyUpdates()
-	{
-		// Create msg for all clients
-		LobbyMessage msg = new LobbyMessage();
-		//msg.connectionId = _networkMessage.conn.connectionId;
-
-		string[] names = new string[maxConnections];
-		for(int i = 0; i < maxConnections; i++)
-		{
-			if(this.isClientConnected[i])
-			{
-				names[i] = this.playerInfoList[i].name;
-			}
-		}
-		msg.playerNames = names;
-
-		Color[] colours = new Color[maxConnections];
-		for(int i = 0; i < maxConnections; i++)
-		{
-			if(this.isClientConnected[i])
-			{
-				colours[i] = this.playerInfoList[i].colour;
-			}
-		}
-		msg.playerColours = colours;
-
-		msg.isPlayerConnected = this.isClientConnected.ToArray();
-		msg.isReadyList = this.isPlayerReadyList.ToArray();
-
-		msg.isLobbyCountingDown = this.isLobbyTimerCountingDown;
-		msg.countDownTime = this.lastLobbyCountDownTimeSent;
-
-		// Send to all
-		NetworkServer.SendToAll(CustomMsgType.Lobby, msg);
 	}
 
 	// Client
@@ -218,6 +245,78 @@ public class GameManager : NetworkManager
 			this.isLobbyTimerCountingDown = false;
 		}
 
+		this.SendLobbyUpdates();
+	}
+
+	//Server
+	private void SendLobbyUpdates()
+	{
+		// Create msg for all clients
+		LobbyMessage msg = new LobbyMessage();
+		//msg.connectionId = _networkMessage.conn.connectionId;
+
+		string[] names = new string[maxConnections];
+		Color[] colours = new Color[maxConnections];
+		for(int i = 0; i < maxConnections; i++)
+		{
+			if(this.isClientConnected[i])
+			{
+				names[i] = this.playerInfoList[i].name;
+				colours[i] = this.playerInfoList[i].colour;
+			}
+		}
+
+		msg.playerNames = names;
+		msg.playerColours = colours;
+
+		msg.isPlayerConnected = this.isClientConnected.ToArray();
+		msg.isReadyList = this.isPlayerReadyList.ToArray();
+
+		msg.isLobbyCountingDown = this.isLobbyTimerCountingDown;
+		msg.countDownTime = this.lastLobbyCountDownTimeSent;
+
+		// Send to all
+		NetworkServer.SendToAll(CustomMsgType.Lobby, msg);
+	}
+
+	// Server
+	private void OnLostClientMenu(NetworkConnection _connection)
+	{
+		bool foundPlayer = false;
+
+		// Shift player info in list
+		for(int i = 0; i < this.maxConnections; i++)
+		{
+			// Find the player that we've lost
+			if(this.playerInfoList[i].connectionId == _connection.connectionId && foundPlayer == false)
+			{
+				foundPlayer = true;
+
+			}
+
+			// Make sure we're not on the last element
+			if(i < (this.maxConnections - 1))
+			{
+				// Shift elements down
+				if(foundPlayer)
+				{
+					this.playerInfoList[i] = this.playerInfoList[i + 1];
+					this.isClientConnected[i] = this.isClientConnected[i + 1];
+					this.isClientSlotTaken[i] = this.isClientSlotTaken[i + 1];
+					this.isPlayerReadyList[i] = this.isPlayerReadyList[i + 1];
+				}
+			}
+			else
+			{
+				// Set last element
+				this.playerInfoList[i] = new PlayerInfo();
+				this.isClientConnected[i] = false;
+				this.isClientSlotTaken[i] = false;
+				this.isPlayerReadyList[i] = false;
+			}
+		}
+
+		// send lobby updates
 		this.SendLobbyUpdates();
 	}
 
@@ -258,6 +357,8 @@ public class GameManager : NetworkManager
 		player.transform.position = new Vector3(Random.Range(-10.0f, 10.0f), Random.Range(-10.0f, 10.0f), Random.Range(-10.0f, 10.0f));
 
 		NetworkServer.AddPlayerForConnection(_networkConnection, player, _playerControllerId);
+
+		//TODO: find player info that matches network connection inour player info list, then get the net id
 
 		PlayerInfo temp = playerInfoList[ _networkConnection.connectionId - 1];
 		temp.playerObjectId = player.GetComponent<NetworkIdentity>().netId;
@@ -344,6 +445,8 @@ public class GameManager : NetworkManager
 	#endregion
 }
 
+#endregion
+
 #region Messages
 
 public class CustomMsgType
@@ -365,6 +468,7 @@ public class RegisterPlayerInfoMessage : MessageBase
 public class LobbyMessage : MessageBase
 {
 	public int connectionId;
+	public bool[] isClientSlotTaken;
 	public bool[] isPlayerConnected;
 	public bool[] isReadyList;
 	public string[] playerNames;

@@ -12,6 +12,8 @@ public class CanvasManager : MonoBehaviour {
 
 	[Header("Parent Panels")]
 	[SerializeField]
+	private GameObject serverPanel;
+	[SerializeField]
 	private GameObject initialPanel;
 	[SerializeField]
 	public GameObject playerPreviewPanel;
@@ -101,12 +103,18 @@ public class CanvasManager : MonoBehaviour {
 		this.lobbyPanel.SetActive(false);
 	}
 
+	public void OpenServerPanel()
+	{
+		this.serverPanel.SetActive(true);
+	}
+
 	#region Server/Client Select
 
 	public void OnServerSelect()
 	{
 		Debug.Log("Selected Server");
 		this.initialPanel.SetActive(false);
+		this.OpenServerPanel();
 		this.gameManager.StartCoroutine(this.gameManager.CreateServer());
 	}
 

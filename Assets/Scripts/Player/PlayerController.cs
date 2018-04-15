@@ -9,11 +9,33 @@ public class PlayerController : MonoBehaviour
 	private PlayerManager playerManager;
 	[SerializeField]
 	private PlayerMovement playerMovement;
+	[SerializeField]
+	private PlayerWeapon playerWeapon;
 
 	[Header("Bools")]
-	public bool isInputEnabled = false;
+	[SerializeField]
+	private bool isInputEnabled = false;
 
 
+	private void Update()
+	{
+		if(this.isInputEnabled)
+		{
+			this.GetInput();
+		}
+	}
 
+	public void GetInput()
+	{
+		if(Input.GetKey(KeyCode.Space))
+		{
+			this.playerWeapon.Fire();
+		}
+	}
 
+	public void SetIsEnabled(bool _isEnabled)
+	{
+		this.isInputEnabled = _isEnabled;
+		this.playerMovement.isInputEnabled = _isEnabled;
+	}
 }

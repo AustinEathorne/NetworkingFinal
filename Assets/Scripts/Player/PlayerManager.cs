@@ -36,7 +36,7 @@ public class PlayerManager : NetworkBehaviour
 		{
 			// enable input
 			this.isInputEnabled = true;
-			this.playerController.isInputEnabled = true;
+			this.playerController.SetIsEnabled(true);
 			//Debug.Log("Player input enabled");
 
 			// enable camera
@@ -59,8 +59,9 @@ public class PlayerManager : NetworkBehaviour
 		msg.position = _position;
 		msg.rotation = _rotation;
 		msg.time = _time;
+		msg.objectType = 0;
 
-		NetworkManager.singleton.client.Send(CustomMsgType.PlayerMove, msg);
+		NetworkManager.singleton.client.Send(CustomMsgType.Move, msg);
 		//Debug.Log("Sent movement msg");
 	}
 

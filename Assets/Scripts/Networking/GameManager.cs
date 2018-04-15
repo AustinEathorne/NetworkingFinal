@@ -40,7 +40,7 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private CanvasManager canvasManager; // Client
 	[SerializeField]
-	private List<Camera> menuCameras; // Client & Server
+	private List<GameObject> menuCameras; // Client & Server
 	[SerializeField]
 	private GameObject serverCam; // Server
 
@@ -49,7 +49,8 @@ public class GameManager : NetworkManager
 	private GameObject levelParent; // Client & Server
 	[SerializeField]
 	private List<Transform> spawnTransforms; // Server
-
+	[SerializeField]
+	private GameObject bullet;
 
 	#region Setup/Create
 
@@ -111,7 +112,8 @@ public class GameManager : NetworkManager
 	{
 		NetworkServer.RegisterHandler(CustomMsgType.PlayerInfo, this.OnPlayerInfoReceived);
 		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
-		NetworkServer.RegisterHandler(CustomMsgType.PlayerMove, this.OnPlayerMove);
+		NetworkServer.RegisterHandler(CustomMsgType.Move, this.OnMovement);
+		NetworkServer.RegisterHandler(CustomMsgType.BulletSpawn, this.OnBulletSpawn);
 		yield return null;
 	}
 
@@ -119,8 +121,8 @@ public class GameManager : NetworkManager
 	{
 		this.client.RegisterHandler(CustomMsgType.Lobby, this.canvasManager.OnLobbyUpdateReceived);
 		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
-		this.client.RegisterHandler(CustomMsgType.InitializePlayer, this.OnPlayerInitialize);
-		this.client.RegisterHandler(CustomMsgType.PlayerMoveUpdate, this.OnPlayerMoveUpdate);
+		this.client.RegisterHandler(CustomMsgType.InitPlayer, this.OnPlayerInitialize);
+		this.client.RegisterHandler(CustomMsgType.Move, this.OnMoveMessage);
 		yield return null;
 	}
 
@@ -403,8 +405,8 @@ public class GameManager : NetworkManager
 		this.canvasManager.CloseMenu();
 
 		this.serverCam.SetActive(true);
-		this.menuCameras[0].enabled = false;
-		this.menuCameras[1].enabled = false;
+		this.menuCameras[0].SetActive(false);
+		this.menuCameras[1].SetActive(false);
 
 		StartGameMessage msg = new StartGameMessage();
 		NetworkServer.SendToAll(CustomMsgType.StartGame, msg);
@@ -450,6 +452,14 @@ public class GameManager : NetworkManager
 				Debug.Log("Player: " + _networkConnection.connectionId.ToString() + " has obj Id: " + temp.playerObjectId.ToString());
 			}
 		}
+	}
+
+	public void OnBulletSpawn(NetworkMessage _networkMessage)
+	{
+		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
+		GameObject clone = Instantiate( this.bullet, msg.position, msg.rotation) as GameObject;
+		NetworkServer.Spawn(clone);
+		clone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
 	}
 
 	#endregion
@@ -574,7 +584,7 @@ public class GameManager : NetworkManager
 			msg.colour = this.playerInfoList[i].colour;
 			msg.objectId = (int)this.playerInfoList[i].playerObjectId;
 			msg.spawnPosition = this.spawnTransforms[i].position;
-			NetworkServer.SendToAll(CustomMsgType.InitializePlayer, msg);
+			NetworkServer.SendToAll(CustomMsgType.InitPlayer, msg);
 
 			// Update server replication
 			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
@@ -599,47 +609,47 @@ public class GameManager : NetworkManager
 	}
 
 	// Server
-	private void OnPlayerMove(NetworkMessage _networkMessage)
+	private void OnMovement(NetworkMessage _networkMessage)
 	{
 		// Read message
 		MoveMessage temp = _networkMessage.ReadMessage<MoveMessage>();
 
-		MoveUpdateMessage msg = new MoveUpdateMessage();
-		msg.objectId = temp.objectId;
-		msg.position = temp.position;
-		msg.rotation = temp.rotation;
-		msg.time = temp.time;
+		// this is player movement
+		if(temp.objectType == 0)
+		{
+			// Update server replication
+			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)temp.objectId, true);
+			tempPlayer.OnPlayerMove(temp.position, temp.rotation, temp.time);
 
-		//Debug.Log("Received movement update from object: " + msg.objectId.ToString());
-
-		// Update server replication
-		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
-		tempPlayer.OnPlayerMove(msg.position, msg.rotation, msg.time);
-
-		NetworkServer.SendToAll(CustomMsgType.PlayerMoveUpdate, msg);
-
-		// Send msg back to all clients except the sending one (the owning client)
-//		for(int i = 0; i < this.maxConnections; i++)
-//		{
-//			if(this.playerInfoList[i].connectionId != _networkMessage.conn.connectionId)
-//			{
-//				NetworkServer.SendToClient(this.playerInfoList[i].connectionId, );
-//				Debug.Log("Sent movement update to client: " + this.playerInfoList[i].connectionId);
-//			}
-//		}
+			NetworkServer.SendToAll(CustomMsgType.Move, temp);
+		}
 	}
 
 	// Client
-	private void OnPlayerMoveUpdate(NetworkMessage _networkMessage)
+	private void OnMoveMessage(NetworkMessage _networkMessage)
 	{
 		// Read message
-		MoveUpdateMessage msg = _networkMessage.ReadMessage<MoveUpdateMessage>();
+		MoveMessage msg = _networkMessage.ReadMessage<MoveMessage>();
 
 		//Debug.Log("Received movement update for object: " + msg.objectId.ToString());
 
-		// Send msg to player object
-		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
-		tempPlayer.OnPlayerMove(msg.position, msg.rotation, msg.time);
+		if(msg.objectType == 0)
+		{
+			// Send msg to player object
+			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
+			tempPlayer.OnPlayerMove(msg.position, msg.rotation, msg.time);
+		}
+		else if(msg.objectType == 1) // bullet
+		{
+			
+			Bullet temp = NetworkHelper.GetObjectByNetIdValue<Bullet>((uint)msg.objectId, false);
+			if(temp)
+				temp.OnMovementReceived(msg.position, msg.rotation, msg.time);
+		}
+		else
+		{
+			
+		}
 	}
 
 	#endregion
@@ -655,9 +665,9 @@ public class CustomMsgType
 	public static short Lobby = MsgType.Highest + 2;
 	public static short ReadyUp = MsgType.Highest + 3;
 	public static short StartGame = MsgType.Highest + 4;
-	public static short InitializePlayer = MsgType.Highest + 5;
-	public static short PlayerMove = MsgType.Highest + 6;
-	public static short PlayerMoveUpdate = MsgType.Highest + 7;
+	public static short InitPlayer = MsgType.Highest + 5;
+	public static short Move = MsgType.Highest + 6;
+	public static short BulletSpawn = MsgType.Highest + 7;
 }
 
 // Client to Server
@@ -709,15 +719,15 @@ public class MoveMessage : MessageBase
 	public Vector3 position;
 	public Quaternion rotation;
 	public float time;
+	public int objectType; // 0 = player, bullet, flag
 }
 
 // Client to Server
-public class MoveUpdateMessage : MessageBase
+public class BulletSpawnMessage : MessageBase
 {
-	public int objectId;
 	public Vector3 position;
 	public Quaternion rotation;
-	public float time;
+	public float speed;
 }
 
 #endregion

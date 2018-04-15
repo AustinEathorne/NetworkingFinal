@@ -16,14 +16,13 @@ public class PlayerMovement : NetworkBehaviour
 	[Header("Properties")]
 	[SerializeField]
 	private float linearSpeed;
-	//[SerializeField]
-	//private float angularSpeed;
 	[SerializeField]
 	private float networkSendRate;
 	private float networkSendCount = 0.0f;
 	private float timeBetweenMovementStart = 0.0f;
 	private float timeBetweenMovementEnd = 0.0f;
 	private int floorMask;
+	public bool isInputEnabled = false;
 
 	[Header("Replication Properties")]
 	private bool isLerpingPosition = false;
@@ -59,8 +58,11 @@ public class PlayerMovement : NetworkBehaviour
 			return;
 		}
 
-		this.UpdatePlayerMovement();
-		this.UpdatePlayerRotation();
+		if(this.isInputEnabled)
+		{
+			this.UpdatePlayerMovement();
+			this.UpdatePlayerRotation();
+		}
 	}
 
 	// replication
@@ -169,7 +171,6 @@ public class PlayerMovement : NetworkBehaviour
 			if(lerpPercentage >= 1.0f)
 			{
 				this.isLerpingPosition = false;
-				this.isLerpingRotation = false;
 			}
 		}
 
@@ -177,6 +178,11 @@ public class PlayerMovement : NetworkBehaviour
 		{
 			float lerpPercentage = (Time.time - this.timeStartedLerping) / this.timeToLerp;
 			this.transform.rotation = Quaternion.Lerp(this.lastRealRotation, this.realRotation, lerpPercentage);
+
+			if(lerpPercentage >= 1.0f)
+			{
+				this.isLerpingRotation = false;
+			}
 		}
 	}
 }

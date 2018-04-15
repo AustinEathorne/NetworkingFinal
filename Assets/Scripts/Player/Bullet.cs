@@ -120,7 +120,7 @@ public class Bullet : NetworkBehaviour
 	private IEnumerator DeathRoutine()
 	{
 		yield return new WaitForSeconds(this.destroyTime);
-		NetworkServer.Destroy(this.gameObject);
+		Network.Destroy(this.gameObject);
 
 		yield return null;
 	}

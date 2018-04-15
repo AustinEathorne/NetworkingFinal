@@ -10,17 +10,20 @@ public class PlayerMovement : NetworkBehaviour
 	private PlayerManager playerManager; // local
 	[SerializeField]
 	private Rigidbody rigidbody; // local
+	[SerializeField]
+	private PlayerCamera playerCamera;
 
 	[Header("Properties")]
 	[SerializeField]
 	private float linearSpeed;
-	[SerializeField]
-	private float angularSpeed;
+	//[SerializeField]
+	//private float angularSpeed;
 	[SerializeField]
 	private float networkSendRate;
 	private float networkSendCount = 0.0f;
 	private float timeBetweenMovementStart = 0.0f;
 	private float timeBetweenMovementEnd = 0.0f;
+	private int floorMask;
 
 	[Header("Replication Properties")]
 	private bool isLerpingPosition = false;
@@ -34,17 +37,21 @@ public class PlayerMovement : NetworkBehaviour
 
 	private bool canSendMessage = true;
 
+
 	private void Start()
 	{
-		this.canSendMessage = true;
-
-		if(!isLocalPlayer)
+		if(isLocalPlayer)
+		{
+			this.floorMask = 1 << 8;
+		}
+		else
 		{
 			this.realPosition = this.transform.position;
 			this.realRotation = this.transform.rotation;
 		}
 	}
 
+	// local
 	private void Update()
 	{
 		if(!isLocalPlayer)
@@ -53,8 +60,10 @@ public class PlayerMovement : NetworkBehaviour
 		}
 
 		this.UpdatePlayerMovement();
+		this.UpdatePlayerRotation();
 	}
 
+	// replication
 	private void FixedUpdate()
 	{
 		if(isLocalPlayer)
@@ -83,6 +92,30 @@ public class PlayerMovement : NetworkBehaviour
 		{
 			this.canSendMessage = false;
 			this.StartCoroutine(this.MovementMessageRoutine());
+		}
+	}
+
+	// local
+	private void UpdatePlayerRotation()
+	{
+		Ray camRay = this.playerCamera.GetCamera().ScreenPointToRay(Input.mousePosition);
+		RaycastHit hit;
+
+		if(Physics.Raycast(camRay, out hit, Mathf.Infinity, this.floorMask))
+		{
+			if(hit.transform.tag == "Floor")
+			{
+				//Debug.Log("Hit floor");
+				//Debug.DrawRay(this.transform.position, hit.point, Color.green);
+
+				Vector3 lookDirection = hit.point - this.transform.position;
+				lookDirection.y = 0.0f;
+
+				Quaternion rot = Quaternion.LookRotation(lookDirection);
+
+				this.rigidbody.MoveRotation(rot);
+				//this.transform.rotation = rot;
+			}
 		}
 	}
 
@@ -125,6 +158,7 @@ public class PlayerMovement : NetworkBehaviour
 		this.timeStartedLerping = Time.time;
 	}
 
+	// replication
 	private void NetworkMovementLerp()
 	{
 		if(this.isLerpingPosition)

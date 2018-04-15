@@ -13,7 +13,7 @@ public class PlayerManager : NetworkBehaviour
 	[SerializeField]
 	private PlayerCamera playerCamera;
 	[SerializeField]
-	private GameManager gameManager;
+	private GameManager gameManager; // not used
 
 	[Header("Player Values")]
 	[SerializeField]
@@ -61,8 +61,7 @@ public class PlayerManager : NetworkBehaviour
 		msg.time = _time;
 
 		NetworkManager.singleton.client.Send(CustomMsgType.PlayerMove, msg);
-		//this.gameManager.client.Send();
-		Debug.Log("Sent movement msg");
+		//Debug.Log("Sent movement msg");
 	}
 
 	// Replication

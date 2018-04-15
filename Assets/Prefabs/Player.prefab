@@ -90,13 +90,13 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1722080611233486}
-  m_LocalRotation: {x: 0.38411003, y: -0.34804112, z: 0.15910356, w: 0.8402458}
-  m_LocalPosition: {x: 10, y: 30, z: -10}
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 18, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 4784850008907584}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: 49.134003, y: -45.000004, z: 0}
+  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!4 &4784850008907584
 Transform:
   m_ObjectHideFlags: 1
@@ -277,9 +277,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerManager: {fileID: 114439244112167944}
   rigidbody: {fileID: 54663493082415018}
+  playerCamera: {fileID: 114971458621387990}
   linearSpeed: 15
-  angularSpeed: 5
-  networkSendRate: 5
+  networkSendRate: 6
 --- !u!114 &114439244112167944
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -348,8 +348,8 @@ MonoBehaviour:
   distance: 10
   speedX: 5
   speedY: 5
-  xOffset: 12
-  zOffset: -12
+  xOffset: 0
+  zOffset: 0
 --- !u!114 &114985474042669958
 MonoBehaviour:
   m_ObjectHideFlags: 1

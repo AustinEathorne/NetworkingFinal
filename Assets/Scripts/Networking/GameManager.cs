@@ -36,11 +36,13 @@ public class GameManager : NetworkManager
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
 	private bool isClientReady = false; // used by the client when ready to play the game 'ready up'
 
-	[Header("Components")]
+	[Header("Components/Objects")]
 	[SerializeField]
 	private CanvasManager canvasManager; // Client
 	[SerializeField]
-	private List<Camera> menuCameras; // Client
+	private List<Camera> menuCameras; // Client & Server
+	[SerializeField]
+	private GameObject serverCam; // Server
 
 	[Header("Level")]
 	[SerializeField]
@@ -398,6 +400,12 @@ public class GameManager : NetworkManager
 		// Turn on level
 		this.levelParent.SetActive(true);
 
+		this.canvasManager.CloseMenu();
+
+		this.serverCam.SetActive(true);
+		this.menuCameras[0].enabled = false;
+		this.menuCameras[1].enabled = false;
+
 		StartGameMessage msg = new StartGameMessage();
 		NetworkServer.SendToAll(CustomMsgType.StartGame, msg);
 	}
@@ -593,8 +601,6 @@ public class GameManager : NetworkManager
 	// Server
 	private void OnPlayerMove(NetworkMessage _networkMessage)
 	{
-		Debug.Log("");
-
 		// Read message
 		MoveMessage temp = _networkMessage.ReadMessage<MoveMessage>();
 
@@ -604,7 +610,7 @@ public class GameManager : NetworkManager
 		msg.rotation = temp.rotation;
 		msg.time = temp.time;
 
-		Debug.Log("Received movement update from object: " + msg.objectId.ToString());
+		//Debug.Log("Received movement update from object: " + msg.objectId.ToString());
 
 		// Update server replication
 		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
@@ -629,7 +635,7 @@ public class GameManager : NetworkManager
 		// Read message
 		MoveUpdateMessage msg = _networkMessage.ReadMessage<MoveUpdateMessage>();
 
-		Debug.Log("Received movement update for object: " + msg.objectId.ToString());
+		//Debug.Log("Received movement update for object: " + msg.objectId.ToString());
 
 		// Send msg to player object
 		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);

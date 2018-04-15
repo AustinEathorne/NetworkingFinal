@@ -49,4 +49,9 @@ public class PlayerCamera : MonoBehaviour {
 		this.audioListener.enabled = isEnabled;
 		this.playerCamera.enabled = isEnabled;
 	}
+
+	public Camera GetCamera()
+	{
+		return this.playerCamera;
+	}
 }

@@ -32,22 +32,25 @@ public class GameManager : NetworkManager
 	private bool isGameStarted = false; // TODO: change to enum for states
 	private bool hasInitializedPlayers = false;
 
-	[SerializeField]
-	private List<Transform> spawnTransforms;
-
 	// Client
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
 	private bool isClientReady = false; // used by the client when ready to play the game 'ready up'
 
+	[Header("Components/Objects")]
 	[SerializeField]
-	private CanvasManager canvasManager;
+	private CanvasManager canvasManager; // Client
+	[SerializeField]
+	private List<GameObject> menuCameras; // Client & Server
+	[SerializeField]
+	private GameObject serverCam; // Server
 
+	[Header("Level")]
 	[SerializeField]
-	private List<Camera> menuCameras;
-
-	// Client & Server
+	private GameObject levelParent; // Client & Server
 	[SerializeField]
-	private GameObject levelParent;
+	private List<Transform> spawnTransforms; // Server
+	[SerializeField]
+	private GameObject bullet;
 
 	#region Setup/Create
 
@@ -82,9 +85,9 @@ public class GameManager : NetworkManager
 		NetworkManager.singleton.StartServer();
 
 		// Register Handlers
-		NetworkServer.RegisterHandler(CustomMsgType.PlayerInfo, this.OnPlayerInfoReceived);
-		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
+		yield return this.StartCoroutine(this.RegisterServerMessages());
 
+		// Switch flag
 		this.hasMadeSelection = true;
 
 		Debug.Log("Server created");
@@ -99,11 +102,27 @@ public class GameManager : NetworkManager
 		NetworkManager.singleton.StartClient();
 
 		// Register Handlers
-		this.client.RegisterHandler(CustomMsgType.Lobby, this.canvasManager.OnLobbyUpdateReceived);
-		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
-		this.client.RegisterHandler(CustomMsgType.InitializePlayer, this.OnPlayerInitialize);
+		yield return this.StartCoroutine(this.RegisterClientMessages());
 
 		Debug.Log("Client created");
+		yield return null;
+	}
+
+	private IEnumerator RegisterServerMessages()
+	{
+		NetworkServer.RegisterHandler(CustomMsgType.PlayerInfo, this.OnPlayerInfoReceived);
+		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
+		NetworkServer.RegisterHandler(CustomMsgType.Move, this.OnMovement);
+		NetworkServer.RegisterHandler(CustomMsgType.BulletSpawn, this.OnBulletSpawn);
+		yield return null;
+	}
+
+	private IEnumerator RegisterClientMessages()
+	{
+		this.client.RegisterHandler(CustomMsgType.Lobby, this.canvasManager.OnLobbyUpdateReceived);
+		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
+		this.client.RegisterHandler(CustomMsgType.InitPlayer, this.OnPlayerInitialize);
+		this.client.RegisterHandler(CustomMsgType.Move, this.OnMoveMessage);
 		yield return null;
 	}
 
@@ -380,6 +399,15 @@ public class GameManager : NetworkManager
 	// Server - tell the clients the game has started
 	public void StartGame()
 	{
+		// Turn on level
+		this.levelParent.SetActive(true);
+
+		this.canvasManager.CloseMenu();
+
+		this.serverCam.SetActive(true);
+		this.menuCameras[0].SetActive(false);
+		this.menuCameras[1].SetActive(false);
+
 		StartGameMessage msg = new StartGameMessage();
 		NetworkServer.SendToAll(CustomMsgType.StartGame, msg);
 	}
@@ -387,9 +415,11 @@ public class GameManager : NetworkManager
 	// Client - tell the server to spawn a player for them
 	public void OnGameStart(NetworkMessage _networkMessage)
 	{
-		// Close Menu UI
-		//this.canvasManager.CloseMenu();
-		//Read msg
+		// Turn on level for this client
+		if(_networkMessage.conn.connectionId == client.connection.connectionId)
+		{
+			this.levelParent.SetActive(true);
+		}
 
 		// Add player
 		ClientScene.AddPlayer(client.connection, 0);
@@ -422,6 +452,14 @@ public class GameManager : NetworkManager
 				Debug.Log("Player: " + _networkConnection.connectionId.ToString() + " has obj Id: " + temp.playerObjectId.ToString());
 			}
 		}
+	}
+
+	public void OnBulletSpawn(NetworkMessage _networkMessage)
+	{
+		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
+		GameObject clone = Instantiate( this.bullet, msg.position, msg.rotation) as GameObject;
+		NetworkServer.Spawn(clone);
+		clone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
 	}
 
 	#endregion
@@ -546,7 +584,11 @@ public class GameManager : NetworkManager
 			msg.colour = this.playerInfoList[i].colour;
 			msg.objectId = (int)this.playerInfoList[i].playerObjectId;
 			msg.spawnPosition = this.spawnTransforms[i].position;
-			NetworkServer.SendToAll(CustomMsgType.InitializePlayer, msg);
+			NetworkServer.SendToAll(CustomMsgType.InitPlayer, msg);
+
+			// Update server replication
+			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
+			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
 		}
 
 		// Turn on level
@@ -561,15 +603,53 @@ public class GameManager : NetworkManager
 		// Read msg
 		InitializePlayerMessage msg = _networkMessage.ReadMessage<InitializePlayerMessage>();
 
-		// Turn on level for this client
-		if(_networkMessage.conn.connectionId == client.connection.connectionId)
-		{
-			this.levelParent.SetActive(true);
-		}
-
 		// Send msg to player object
-		Player tempPlayer = NetworkHelper.GetObjectByNetIdValue<Player>((uint)msg.objectId, false);
-		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition);
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
+		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
+	}
+
+	// Server
+	private void OnMovement(NetworkMessage _networkMessage)
+	{
+		// Read message
+		MoveMessage temp = _networkMessage.ReadMessage<MoveMessage>();
+
+		// this is player movement
+		if(temp.objectType == 0)
+		{
+			// Update server replication
+			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)temp.objectId, true);
+			tempPlayer.OnPlayerMove(temp.position, temp.rotation, temp.time);
+
+			NetworkServer.SendToAll(CustomMsgType.Move, temp);
+		}
+	}
+
+	// Client
+	private void OnMoveMessage(NetworkMessage _networkMessage)
+	{
+		// Read message
+		MoveMessage msg = _networkMessage.ReadMessage<MoveMessage>();
+
+		//Debug.Log("Received movement update for object: " + msg.objectId.ToString());
+
+		if(msg.objectType == 0)
+		{
+			// Send msg to player object
+			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
+			tempPlayer.OnPlayerMove(msg.position, msg.rotation, msg.time);
+		}
+		else if(msg.objectType == 1) // bullet
+		{
+			
+			Bullet temp = NetworkHelper.GetObjectByNetIdValue<Bullet>((uint)msg.objectId, false);
+			if(temp)
+				temp.OnMovementReceived(msg.position, msg.rotation, msg.time);
+		}
+		else
+		{
+			
+		}
 	}
 
 	#endregion
@@ -585,7 +665,9 @@ public class CustomMsgType
 	public static short Lobby = MsgType.Highest + 2;
 	public static short ReadyUp = MsgType.Highest + 3;
 	public static short StartGame = MsgType.Highest + 4;
-	public static short InitializePlayer = MsgType.Highest + 5;
+	public static short InitPlayer = MsgType.Highest + 5;
+	public static short Move = MsgType.Highest + 6;
+	public static short BulletSpawn = MsgType.Highest + 7;
 }
 
 // Client to Server
@@ -620,8 +702,7 @@ public class StartGameMessage : MessageBase
 {
 	public string msg;
 }
-
-// Server to clients
+	
 // Server to clients
 public class InitializePlayerMessage : MessageBase
 {
@@ -634,15 +715,19 @@ public class InitializePlayerMessage : MessageBase
 // Client to Server
 public class MoveMessage : MessageBase
 {
+	public int objectId;
 	public Vector3 position;
-	public Vector3 rotation;
+	public Quaternion rotation;
+	public float time;
+	public int objectType; // 0 = player, bullet, flag
 }
 
-// Server to client
-public class TransformMessage : MessageBase
+// Client to Server
+public class BulletSpawnMessage : MessageBase
 {
 	public Vector3 position;
-	public Vector3 rotation;
+	public Quaternion rotation;
+	public float speed;
 }
 
 #endregion
@@ -651,12 +736,12 @@ public class TransformMessage : MessageBase
 
 public static class NetworkHelper
 {
-	public static T GetObjectByNetIdValue<T>(uint _value, bool isServer)
+	public static T GetObjectByNetIdValue<T>(uint _value, bool _isServer)
 	{
 		NetworkInstanceId netInstanceId = new NetworkInstanceId(_value);
 		NetworkIdentity foundNetworkIdentity = null;
 
-		if(isServer)
+		if(_isServer)
 		{
 			NetworkServer.objects.TryGetValue(netInstanceId, out foundNetworkIdentity);
 		}

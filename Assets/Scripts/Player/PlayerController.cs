@@ -2,17 +2,40 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerController : MonoBehaviour {
+public class PlayerController : MonoBehaviour 
+{
+	[Header("Components")]
+	[SerializeField]
+	private PlayerManager playerManager;
+	[SerializeField]
+	private PlayerMovement playerMovement;
+	[SerializeField]
+	private PlayerWeapon playerWeapon;
 
-	public bool isInputEnabled = false;
+	[Header("Bools")]
+	[SerializeField]
+	private bool isInputEnabled = false;
 
-	// Use this for initialization
-	void Start () {
-		
+
+	private void Update()
+	{
+		if(this.isInputEnabled)
+		{
+			this.GetInput();
+		}
 	}
-	
-	// Update is called once per frame
-	void Update () {
-		
+
+	public void GetInput()
+	{
+		if(Input.GetKey(KeyCode.Space))
+		{
+			this.playerWeapon.Fire();
+		}
+	}
+
+	public void SetIsEnabled(bool _isEnabled)
+	{
+		this.isInputEnabled = _isEnabled;
+		this.playerMovement.isInputEnabled = _isEnabled;
 	}
 }

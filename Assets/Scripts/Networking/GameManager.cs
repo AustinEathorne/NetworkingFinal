@@ -32,22 +32,22 @@ public class GameManager : NetworkManager
 	private bool isGameStarted = false; // TODO: change to enum for states
 	private bool hasInitializedPlayers = false;
 
-	[SerializeField]
-	private List<Transform> spawnTransforms;
-
 	// Client
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
 	private bool isClientReady = false; // used by the client when ready to play the game 'ready up'
 
+	[Header("Components")]
 	[SerializeField]
-	private CanvasManager canvasManager;
+	private CanvasManager canvasManager; // Client
+	[SerializeField]
+	private List<Camera> menuCameras; // Client
 
+	[Header("Level")]
 	[SerializeField]
-	private List<Camera> menuCameras;
+	private GameObject levelParent; // Client & Server
+	[SerializeField]
+	private List<Transform> spawnTransforms; // Server
 
-	// Client & Server
-	[SerializeField]
-	private GameObject levelParent;
 
 	#region Setup/Create
 
@@ -82,9 +82,9 @@ public class GameManager : NetworkManager
 		NetworkManager.singleton.StartServer();
 
 		// Register Handlers
-		NetworkServer.RegisterHandler(CustomMsgType.PlayerInfo, this.OnPlayerInfoReceived);
-		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
+		yield return this.StartCoroutine(this.RegisterServerMessages());
 
+		// Switch flag
 		this.hasMadeSelection = true;
 
 		Debug.Log("Server created");
@@ -99,11 +99,26 @@ public class GameManager : NetworkManager
 		NetworkManager.singleton.StartClient();
 
 		// Register Handlers
+		yield return this.StartCoroutine(this.RegisterClientMessages());
+
+		Debug.Log("Client created");
+		yield return null;
+	}
+
+	private IEnumerator RegisterServerMessages()
+	{
+		NetworkServer.RegisterHandler(CustomMsgType.PlayerInfo, this.OnPlayerInfoReceived);
+		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
+		NetworkServer.RegisterHandler(CustomMsgType.PlayerMove, this.OnPlayerMove);
+		yield return null;
+	}
+
+	private IEnumerator RegisterClientMessages()
+	{
 		this.client.RegisterHandler(CustomMsgType.Lobby, this.canvasManager.OnLobbyUpdateReceived);
 		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
 		this.client.RegisterHandler(CustomMsgType.InitializePlayer, this.OnPlayerInitialize);
-
-		Debug.Log("Client created");
+		this.client.RegisterHandler(CustomMsgType.PlayerMoveUpdate, this.OnPlayerMoveUpdate);
 		yield return null;
 	}
 
@@ -380,6 +395,9 @@ public class GameManager : NetworkManager
 	// Server - tell the clients the game has started
 	public void StartGame()
 	{
+		// Turn on level
+		this.levelParent.SetActive(true);
+
 		StartGameMessage msg = new StartGameMessage();
 		NetworkServer.SendToAll(CustomMsgType.StartGame, msg);
 	}
@@ -387,9 +405,11 @@ public class GameManager : NetworkManager
 	// Client - tell the server to spawn a player for them
 	public void OnGameStart(NetworkMessage _networkMessage)
 	{
-		// Close Menu UI
-		//this.canvasManager.CloseMenu();
-		//Read msg
+		// Turn on level for this client
+		if(_networkMessage.conn.connectionId == client.connection.connectionId)
+		{
+			this.levelParent.SetActive(true);
+		}
 
 		// Add player
 		ClientScene.AddPlayer(client.connection, 0);
@@ -547,6 +567,10 @@ public class GameManager : NetworkManager
 			msg.objectId = (int)this.playerInfoList[i].playerObjectId;
 			msg.spawnPosition = this.spawnTransforms[i].position;
 			NetworkServer.SendToAll(CustomMsgType.InitializePlayer, msg);
+
+			// Update server replication
+			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
+			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
 		}
 
 		// Turn on level
@@ -561,15 +585,55 @@ public class GameManager : NetworkManager
 		// Read msg
 		InitializePlayerMessage msg = _networkMessage.ReadMessage<InitializePlayerMessage>();
 
-		// Turn on level for this client
-		if(_networkMessage.conn.connectionId == client.connection.connectionId)
-		{
-			this.levelParent.SetActive(true);
-		}
+		// Send msg to player object
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
+		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
+	}
+
+	// Server
+	private void OnPlayerMove(NetworkMessage _networkMessage)
+	{
+		Debug.Log("");
+
+		// Read message
+		MoveMessage temp = _networkMessage.ReadMessage<MoveMessage>();
+
+		MoveUpdateMessage msg = new MoveUpdateMessage();
+		msg.objectId = temp.objectId;
+		msg.position = temp.position;
+		msg.rotation = temp.rotation;
+		msg.time = temp.time;
+
+		Debug.Log("Received movement update from object: " + msg.objectId.ToString());
+
+		// Update server replication
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
+		tempPlayer.OnPlayerMove(msg.position, msg.rotation, msg.time);
+
+		NetworkServer.SendToAll(CustomMsgType.PlayerMoveUpdate, msg);
+
+		// Send msg back to all clients except the sending one (the owning client)
+//		for(int i = 0; i < this.maxConnections; i++)
+//		{
+//			if(this.playerInfoList[i].connectionId != _networkMessage.conn.connectionId)
+//			{
+//				NetworkServer.SendToClient(this.playerInfoList[i].connectionId, );
+//				Debug.Log("Sent movement update to client: " + this.playerInfoList[i].connectionId);
+//			}
+//		}
+	}
+
+	// Client
+	private void OnPlayerMoveUpdate(NetworkMessage _networkMessage)
+	{
+		// Read message
+		MoveUpdateMessage msg = _networkMessage.ReadMessage<MoveUpdateMessage>();
+
+		Debug.Log("Received movement update for object: " + msg.objectId.ToString());
 
 		// Send msg to player object
-		Player tempPlayer = NetworkHelper.GetObjectByNetIdValue<Player>((uint)msg.objectId, false);
-		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition);
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
+		tempPlayer.OnPlayerMove(msg.position, msg.rotation, msg.time);
 	}
 
 	#endregion
@@ -586,6 +650,8 @@ public class CustomMsgType
 	public static short ReadyUp = MsgType.Highest + 3;
 	public static short StartGame = MsgType.Highest + 4;
 	public static short InitializePlayer = MsgType.Highest + 5;
+	public static short PlayerMove = MsgType.Highest + 6;
+	public static short PlayerMoveUpdate = MsgType.Highest + 7;
 }
 
 // Client to Server
@@ -620,8 +686,7 @@ public class StartGameMessage : MessageBase
 {
 	public string msg;
 }
-
-// Server to clients
+	
 // Server to clients
 public class InitializePlayerMessage : MessageBase
 {
@@ -634,15 +699,19 @@ public class InitializePlayerMessage : MessageBase
 // Client to Server
 public class MoveMessage : MessageBase
 {
+	public int objectId;
 	public Vector3 position;
-	public Vector3 rotation;
+	public Quaternion rotation;
+	public float time;
 }
 
-// Server to client
-public class TransformMessage : MessageBase
+// Client to Server
+public class MoveUpdateMessage : MessageBase
 {
+	public int objectId;
 	public Vector3 position;
-	public Vector3 rotation;
+	public Quaternion rotation;
+	public float time;
 }
 
 #endregion
@@ -651,12 +720,12 @@ public class TransformMessage : MessageBase
 
 public static class NetworkHelper
 {
-	public static T GetObjectByNetIdValue<T>(uint _value, bool isServer)
+	public static T GetObjectByNetIdValue<T>(uint _value, bool _isServer)
 	{
 		NetworkInstanceId netInstanceId = new NetworkInstanceId(_value);
 		NetworkIdentity foundNetworkIdentity = null;
 
-		if(isServer)
+		if(_isServer)
 		{
 			NetworkServer.objects.TryGetValue(netInstanceId, out foundNetworkIdentity);
 		}

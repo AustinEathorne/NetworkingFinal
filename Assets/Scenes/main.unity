@@ -1114,7 +1114,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 298172332}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -14.16, y: 1, z: -15.99}
+  m_LocalPosition: {x: -14.16, y: 1.5, z: -15.99}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1277998702}
@@ -1276,7 +1276,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 306496868}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.82, y: 1, z: 15.97}
+  m_LocalPosition: {x: 1.82, y: 1.5, z: 15.97}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1277998702}
@@ -2146,16 +2146,16 @@ MonoBehaviour:
   matchSize: 4
   isNetworkActive: 0
   matchMaker: {fileID: 0}
-  spawnTransforms:
-  - {fileID: 298172333}
-  - {fileID: 908099844}
-  - {fileID: 306496869}
-  - {fileID: 1390812459}
   canvasManager: {fileID: 819342302}
   menuCameras:
   - {fileID: 320075136}
   - {fileID: 34147218}
   levelParent: {fileID: 1709752235}
+  spawnTransforms:
+  - {fileID: 298172333}
+  - {fileID: 908099844}
+  - {fileID: 306496869}
+  - {fileID: 1390812459}
 --- !u!4 &623986410
 Transform:
   m_ObjectHideFlags: 0
@@ -3296,7 +3296,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 908099843}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 9.5, y: 1, z: -20.4}
+  m_LocalPosition: {x: 9.5, y: 1.5, z: -20.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1277998702}
@@ -5105,7 +5105,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1390812458}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 13.58, y: 1, z: 8.22}
+  m_LocalPosition: {x: 13.58, y: 1.5, z: 8.22}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1277998702}

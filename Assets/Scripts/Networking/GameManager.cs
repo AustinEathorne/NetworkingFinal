@@ -36,6 +36,12 @@ public class GameManager : NetworkManager
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
 	private bool isClientReady = false; // used by the client when ready to play the game 'ready up'
 
+	[Header("Debug")]
+	[SerializeField]
+	private string netAddressToUse;
+	[SerializeField]
+	private int portToUse;
+
 	[Header("Components/Objects")]
 	[SerializeField]
 	private CanvasManager canvasManager; // Client
@@ -92,7 +98,8 @@ public class GameManager : NetworkManager
 		yield return this.StartCoroutine(this.SetupManager());
 
 		// Start Server
-		NetworkManager.singleton.networkPort = 4444;
+		this.networkPort = this.portToUse;
+		this.networkAddress = this.netAddressToUse;
 		NetworkManager.singleton.StartServer();
 
 		// Register Handlers
@@ -105,11 +112,11 @@ public class GameManager : NetworkManager
 		yield return null;
 	}
 
-	public IEnumerator CreateClient()
+	public IEnumerator CreateClient() //"192.168.2.99"
 	{
 		// Start Client
-		NetworkManager.singleton.networkAddress = "192.168.2.99";
-		NetworkManager.singleton.networkPort = 4444;
+		NetworkManager.singleton.networkAddress = this.netAddressToUse;
+		NetworkManager.singleton.networkPort = this.portToUse;
 		NetworkManager.singleton.StartClient();
 
 		// Register Handlers

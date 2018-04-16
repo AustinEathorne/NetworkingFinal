@@ -43,6 +43,8 @@ public class GameManager : NetworkManager
 	private List<GameObject> menuCameras; // Client & Server
 	[SerializeField]
 	private GameObject serverCam; // Server
+	[SerializeField]
+	private GameObject gameCanvas;
 
 	[Header("Level")]
 	[SerializeField]
@@ -588,7 +590,7 @@ public class GameManager : NetworkManager
 
 			// Update server replication
 			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
-			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
+			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this, this.gameCanvas);
 		}
 
 		// Turn on level
@@ -605,7 +607,7 @@ public class GameManager : NetworkManager
 
 		// Send msg to player object
 		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
-		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
+		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this, this.gameCanvas);
 	}
 
 	// Server

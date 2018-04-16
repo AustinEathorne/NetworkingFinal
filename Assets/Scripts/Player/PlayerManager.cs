@@ -14,6 +14,8 @@ public class PlayerManager : NetworkBehaviour
 	private PlayerCamera playerCamera;
 	[SerializeField]
 	private GameManager gameManager; // not used
+	[SerializeField]
+	private GameObject gameCanvas;
 
 	[Header("Player Values")]
 	[SerializeField]
@@ -24,12 +26,13 @@ public class PlayerManager : NetworkBehaviour
 	private bool isInputEnabled = false;
 
 	// Set object colour, etc
-	public void Initialize(string _name, Color _colour, Vector3 _spawnPosition, GameManager _gameManager)
+	public void Initialize(string _name, Color _colour, Vector3 _spawnPosition, GameManager _gameManager, GameObject _gameCanvas)
 	{
 		this.name = _name;
 		this.GetComponent<MeshRenderer>().material.color = _colour;
 		this.transform.position = _spawnPosition;
 		this.gameManager = _gameManager;
+		this.gameCanvas = _gameCanvas;
 		//Debug.Log("Player initialized");
 
 		if(this.isLocalPlayer)
@@ -41,14 +44,13 @@ public class PlayerManager : NetworkBehaviour
 
 			// enable camera
 			this.playerCamera.EnableCamera(true);
-		}
-	}
 
-	private void Update()
-	{
-		if(this.isInputEnabled)
-		{
-			
+			this.gameCanvas.GetComponent<Canvas>().worldCamera = this.playerCamera.GetCamera();
+			this.gameCanvas.GetComponent<Canvas>().planeDistance = 1;
+			// TODO set active on first update
+			this.gameCanvas.SetActive(true);
+
+			Debug.Log("Initialized local player");
 		}
 	}
 

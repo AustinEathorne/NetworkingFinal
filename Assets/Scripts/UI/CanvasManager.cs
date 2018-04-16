@@ -30,7 +30,6 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private GameObject coolSpinningThing;
 
-
 	[Header("Colour Select")]
 	[SerializeField]
 	private MeshRenderer menuPlayerMeshRenderer;
@@ -58,7 +57,7 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private Text readyButtonText2;
 	[SerializeField]
-	private Text timeText;
+	private Text lobbyTimeText;
 	[SerializeField]
 	private Text lobbyMsgText;
 	[SerializeField]
@@ -66,6 +65,15 @@ public class CanvasManager : MonoBehaviour {
 	private bool hasReceivedLobbyUpdateMsg = false;
 
 	private bool isReadyForLobby = false;
+
+	[Header("Game")]
+	[SerializeField]
+	private List<GameObject> playerTags;
+	[SerializeField]
+	private List<Slider> playerHealthBars;
+	[SerializeField]
+	private List<Text> gameTimeText;
+
 
 
 	private void Start()
@@ -237,10 +245,10 @@ public class CanvasManager : MonoBehaviour {
 		if(msg.isLobbyCountingDown)
 		{
 			// Enable text & update with the time
-			this.timeText.enabled = true;
+			this.lobbyTimeText.enabled = true;
 			if(msg.countDownTime > -1)
 			{
-				this.timeText.text = msg.countDownTime > 0 ? msg.countDownTime.ToString() : "GOOD LUCK!";
+				this.lobbyTimeText.text = msg.countDownTime > 0 ? msg.countDownTime.ToString() : "GOOD LUCK!";
 			}
 			else
 			{
@@ -249,7 +257,7 @@ public class CanvasManager : MonoBehaviour {
 		}
 		else
 		{
-			this.timeText.enabled = false;
+			this.lobbyTimeText.enabled = false;
 		}
 
 		// Display lobby update msg
@@ -284,6 +292,21 @@ public class CanvasManager : MonoBehaviour {
 	{
 		yield return new WaitForSeconds(this.lobbyMsgUpTime);
 		this.lobbyMsgText.enabled = false;
+	}
+
+	#endregion
+
+	#region Game
+
+	public void OnHealthUpdate(bool[] _isPlaying, int[] _health)
+	{
+		for(int i = 0; i < _isPlaying.Length; i++)
+		{
+			if(_isPlaying[i] == false)
+				continue;
+
+			this.playerHealthBars[i].value = _health[i];
+		}
 	}
 
 	#endregion

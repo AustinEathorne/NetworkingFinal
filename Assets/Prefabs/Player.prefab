@@ -380,7 +380,7 @@ MonoBehaviour:
   playerManager: {fileID: 114439244112167944}
   rigidbody: {fileID: 54663493082415018}
   playerCamera: {fileID: 114971458621387990}
-  linearSpeed: 8
+  linearSpeed: 4
   networkSendRate: 5
   isInputEnabled: 0
 --- !u!114 &114262621673804986
@@ -398,8 +398,8 @@ MonoBehaviour:
   bulletSpawn: {fileID: 4127957205731808}
   rigidbody: {fileID: 54663493082415018}
   fireDelay: 0.35
-  bulletSpeed: 10
-  weaponKickbackForce: 2000
+  bulletSpeed: 8
+  weaponKickbackForce: 100
 --- !u!114 &114439244112167944
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -415,6 +415,7 @@ MonoBehaviour:
   playerMovement: {fileID: 114157608595253382}
   playerCamera: {fileID: 114971458621387990}
   gameManager: {fileID: 0}
+  gameCanvas: {fileID: 0}
   health: 100
   name: 
   colour: {r: 0, g: 0, b: 0, a: 0}

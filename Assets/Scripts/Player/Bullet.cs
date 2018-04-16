@@ -6,6 +6,9 @@ using UnityEngine.Networking;
 public class Bullet : NetworkBehaviour
 {
 	[SerializeField]
+	NetworkIdentity networkIdentity;
+
+	[SerializeField]
 	private float destroyTime = 3.0f;
 	[SerializeField]
 	private float networkSendRate = 5;
@@ -26,11 +29,16 @@ public class Bullet : NetworkBehaviour
 	// Server
 	void Start () 
 	{
-		Destroy(this, 3.0f);
-		this.realPosition = this.transform.position;
-		this.realRotation = this.transform.rotation;
-		this.StartCoroutine(this.MovementMessageRoutine());
-		this.StartCoroutine(this.DeathRoutine());
+		if(this.networkIdentity.isServer)
+		{
+			this.StartCoroutine(this.MovementMessageRoutine());
+			this.StartCoroutine(this.DeathRoutine());
+		}
+		else
+		{
+			this.realPosition = this.transform.position;
+			this.realRotation = this.transform.rotation;
+		}
 	}
 
 	// Server
@@ -60,7 +68,7 @@ public class Bullet : NetworkBehaviour
 	// replication
 	private void FixedUpdate()
 	{
-		if(Network.isServer)
+		if(this.networkIdentity.isServer)
 		{
 			return;
 		}
@@ -93,6 +101,8 @@ public class Bullet : NetworkBehaviour
 	// replication - client
 	private void NetworkMovementLerp()
 	{
+		//Debug.Log("Movement Lerp");
+
 		if(this.isLerpingPosition)
 		{
 			float lerpPercentage = (Time.time - this.timeStartedLerping) / this.timeToLerp;
@@ -120,8 +130,26 @@ public class Bullet : NetworkBehaviour
 	private IEnumerator DeathRoutine()
 	{
 		yield return new WaitForSeconds(this.destroyTime);
-		Network.Destroy(this.gameObject);
-
+		NetworkServer.Destroy(this.gameObject);
+		//Debug.Log("Destroy bullet");
 		yield return null;
+	}
+
+	public void OnCollisionEnter(Collision _collision)
+	{
+		if(!this.networkIdentity.isServer)
+		{
+			return;
+		}
+
+		//Debug.Log("Bullet Collision");
+
+		if(_collision.gameObject.tag == "Player")
+		{
+			GameManager temp =  GameObject.FindGameObjectWithTag("GameManager").GetComponent<GameManager>();
+			temp.OnBulletHit((int)_collision.transform.GetComponent<NetworkIdentity>().netId.Value);
+		}
+
+		NetworkServer.Destroy(this.gameObject);
 	}
 }

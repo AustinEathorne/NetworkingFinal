@@ -43,6 +43,8 @@ public class GameManager : NetworkManager
 	private List<GameObject> menuCameras; // Client & Server
 	[SerializeField]
 	private GameObject serverCam; // Server
+	[SerializeField]
+	private GameObject gameCanvas;
 
 	[Header("Level")]
 	[SerializeField]
@@ -51,6 +53,15 @@ public class GameManager : NetworkManager
 	private List<Transform> spawnTransforms; // Server
 	[SerializeField]
 	private GameObject bullet;
+
+	[Header("Player")]
+	[SerializeField]
+	private int baseHealth = 100;
+	[SerializeField]
+	private int baseDamage = 10;
+	[SerializeField]
+	private List<int> playerHealthList;
+
 
 	#region Setup/Create
 
@@ -123,6 +134,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
 		this.client.RegisterHandler(CustomMsgType.InitPlayer, this.OnPlayerInitialize);
 		this.client.RegisterHandler(CustomMsgType.Move, this.OnMoveMessage);
+		this.client.RegisterHandler(CustomMsgType.Health, this.OnHealthMessage);
 		yield return null;
 	}
 
@@ -148,6 +160,7 @@ public class GameManager : NetworkManager
 				// Update player info
 				newPlayerInfo.connectionId = _networkConnection.connectionId;
 				newPlayerInfo.playerIndex = i;
+				this.playerHealthList[i] = this.baseHealth;
 
 				// Add new player info to list
 				this.playerInfoList[i] = newPlayerInfo;
@@ -155,10 +168,6 @@ public class GameManager : NetworkManager
 				break;
 			}
 		}
-
-		// Add player info to the list
-		//this.playerInfoList.Add(newPlayerInfo);
-		//this.isClientConnected[(_networkConnection.connectionId - 1)] = true;
 
 		Debug.Log("Player " + _networkConnection.connectionId.ToString() + " has connected");
 	}
@@ -457,8 +466,10 @@ public class GameManager : NetworkManager
 	public void OnBulletSpawn(NetworkMessage _networkMessage)
 	{
 		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
-		GameObject clone = Instantiate( this.bullet, msg.position, msg.rotation) as GameObject;
+		GameObject clone = Instantiate(this.bullet, msg.position, msg.rotation) as GameObject;
 		NetworkServer.Spawn(clone);
+		//clone.transform.position = msg.position;
+		//clone.transform.rotation = msg.rotation;
 		clone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
 	}
 
@@ -588,7 +599,7 @@ public class GameManager : NetworkManager
 
 			// Update server replication
 			PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, true);
-			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
+			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this, this.gameCanvas);
 		}
 
 		// Turn on level
@@ -605,7 +616,7 @@ public class GameManager : NetworkManager
 
 		// Send msg to player object
 		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
-		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this);
+		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this, this.gameCanvas);
 	}
 
 	// Server
@@ -641,7 +652,6 @@ public class GameManager : NetworkManager
 		}
 		else if(msg.objectType == 1) // bullet
 		{
-			
 			Bullet temp = NetworkHelper.GetObjectByNetIdValue<Bullet>((uint)msg.objectId, false);
 			if(temp)
 				temp.OnMovementReceived(msg.position, msg.rotation, msg.time);
@@ -650,6 +660,37 @@ public class GameManager : NetworkManager
 		{
 			
 		}
+	}
+
+	// Server - bullets are server owned objects
+	public void OnBulletHit(int _objectId)
+	{
+		Debug.Log("Player object " + _objectId.ToString() + " got hit!");
+
+		// Find player in our list
+		for(int i = 0; i < this.maxConnections; i++)
+		{
+			if(this.playerInfoList[i].playerObjectId == _objectId)
+			{
+				this.playerHealthList[i] -= this.baseDamage;
+
+				HealthMessage msg = new HealthMessage();
+				msg.isPlaying = this.isPlayerReadyList.ToArray();
+				msg.playerHealth = this.playerHealthList.ToArray();
+				NetworkServer.SendToAll(CustomMsgType.Health, msg);
+				break;
+			}
+		}
+	}
+
+	// Client
+	private void OnHealthMessage(NetworkMessage _networkMessage)
+	{
+		Debug.Log("Received Health message");
+
+		// send msg details to canvas manager
+		HealthMessage msg = _networkMessage.ReadMessage<HealthMessage>();
+		this.canvasManager.OnHealthUpdate(msg.isPlaying, msg.playerHealth);
 	}
 
 	#endregion
@@ -668,6 +709,7 @@ public class CustomMsgType
 	public static short InitPlayer = MsgType.Highest + 5;
 	public static short Move = MsgType.Highest + 6;
 	public static short BulletSpawn = MsgType.Highest + 7;
+	public static short Health = MsgType.Highest + 8;
 }
 
 // Client to Server
@@ -730,6 +772,12 @@ public class BulletSpawnMessage : MessageBase
 	public float speed;
 }
 
+public class HealthMessage : MessageBase
+{
+	public bool[] isPlaying;
+	public int[] playerHealth;
+}
+	
 #endregion
 
 #region Helper

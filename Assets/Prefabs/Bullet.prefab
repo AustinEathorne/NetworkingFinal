@@ -112,8 +112,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94de0ff133755ad4fb7b378392bdb690, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  networkIdentity: {fileID: 114261117166183578}
   destroyTime: 3
-  networkSendRate: 10
+  networkSendRate: 6
 --- !u!114 &114261117166183578
 MonoBehaviour:
   m_ObjectHideFlags: 1

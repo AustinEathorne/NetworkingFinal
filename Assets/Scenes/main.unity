@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.37311953, g: 0.38074014, b: 0.3587274, a: 1}
+  m_IndirectSpecularColor: {r: 0.37311992, g: 0.38074034, b: 0.35872713, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -2008,7 +2008,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &282438482
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3894,7 +3894,7 @@ MonoBehaviour:
   matchSize: 4
   isNetworkActive: 0
   matchMaker: {fileID: 0}
-  netAddressToUse: 192.168.2.99
+  netAddressToUse: 10.4.130.156
   portToUse: 4444
   canvasManager: {fileID: 819342302}
   menuCameras:
@@ -5126,6 +5126,16 @@ MonoBehaviour:
   gameTimeText:
   - {fileID: 1270485481}
   - {fileID: 110968643}
+  playerGameColourImages:
+  - {fileID: 1903819866}
+  - {fileID: 562973312}
+  - {fileID: 338954337}
+  - {fileID: 1819851325}
+  playerNameTagText:
+  - {fileID: 776112265}
+  - {fileID: 170462754}
+  - {fileID: 1652359056}
+  - {fileID: 1389704651}
 --- !u!1 &840089416
 GameObject:
   m_ObjectHideFlags: 0
@@ -8644,7 +8654,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1483575029
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8863,7 +8873,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1583566397
 RectTransform:
   m_ObjectHideFlags: 0
@@ -10299,7 +10309,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1911864168
 RectTransform:
   m_ObjectHideFlags: 0

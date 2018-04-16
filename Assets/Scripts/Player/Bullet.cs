@@ -29,7 +29,7 @@ public class Bullet : NetworkBehaviour
 	// Server
 	void Start () 
 	{
-		if(this.networkIdentity.isServer)
+		if(this.isClient)
 		{
 			this.StartCoroutine(this.MovementMessageRoutine());
 			this.StartCoroutine(this.DeathRoutine());
@@ -62,13 +62,15 @@ public class Bullet : NetworkBehaviour
 		msg.time = (this.timeBetweenMovementEnd - this.timeBetweenMovementStart);
 		msg.objectType = 1;
 
-		NetworkServer.SendToAll(CustomMsgType.Move, msg);
+		NetworkManager.singleton.client.Send(CustomMsgType.Move, msg);
+
+		//NetworkServer.SendToAll(CustomMsgType.Move, msg);
 	}
 
 	// replication
 	private void FixedUpdate()
 	{
-		if(this.networkIdentity.isServer)
+		if(this.isClient)
 		{
 			return;
 		}
@@ -79,6 +81,11 @@ public class Bullet : NetworkBehaviour
 	// replication - client
 	public void OnMovementReceived(Vector3 _position, Quaternion _rotation, float _time)
 	{
+		if(this.isClient)
+		{
+			return;
+		}
+
 		this.lastRealPosition = this.realPosition;
 		this.lastRealRotation = this.realRotation;
 		this.realPosition = _position;
@@ -137,12 +144,12 @@ public class Bullet : NetworkBehaviour
 
 	public void OnCollisionEnter(Collision _collision)
 	{
-		if(!this.networkIdentity.isServer)
+		if(!this.isClient)
 		{
 			return;
 		}
 
-		//Debug.Log("Bullet Collision");
+		Debug.Log("Bullet Collision");
 
 		if(_collision.gameObject.tag == "Player")
 		{

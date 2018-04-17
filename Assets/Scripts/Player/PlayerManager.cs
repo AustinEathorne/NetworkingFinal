@@ -17,11 +17,17 @@ public class PlayerManager : NetworkBehaviour
 	[SerializeField]
 	private GameObject gameCanvas;
 
+	[Header("Particles")]
+	[SerializeField]
+	private GameObject deathParticle;
+
 	[Header("Player Values")]
 	[SerializeField]
 	private int health = 100;
 	public string name;
 	public Color colour;
+
+	private Vector3 nextSpawnPosition = new Vector3(0.0f, 0.0f, 0.0f);
 
 	private bool isInputEnabled = false;
 
@@ -75,4 +81,50 @@ public class PlayerManager : NetworkBehaviour
 
 		this.playerMovement.ReceiveMovementMessage(_position, _rotation, _time);
 	}
+
+	// Local/Replication
+	public void OnShotTaken()
+	{
+		// Player Shot Takens particle
+		//GameObject particle = Instantiate(this.deathParticle, this.transform.position, this.transform.rotation) as GameObject;
+
+		// Disable input
+
+		// Wait
+
+		// Respawn
+	}
+
+	// Local/Replication
+	public void OnDeath(Vector3 _nextSpawnPosition)
+	{
+		// set next spawn pos
+		this.nextSpawnPosition = _nextSpawnPosition;
+
+		// Player Death particle
+		GameObject particle = Instantiate(this.deathParticle, this.transform.position, this.transform.rotation) as GameObject;
+
+		// Disable input
+
+		// Wait
+
+		// Respawn
+	}
+
+	// Local/Replication
+	public void OnRespawnWait()
+	{
+		// update respawn timer
+	}
+
+	// Local/Replication
+	public void OnRespawn()
+	{
+		// Turn off player mesh renderer
+
+		// Move to spawn
+
+		// Re-orient player
+	}
+
 }

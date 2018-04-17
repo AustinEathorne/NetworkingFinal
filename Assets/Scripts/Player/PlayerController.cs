@@ -27,7 +27,7 @@ public class PlayerController : MonoBehaviour
 
 	public void GetInput()
 	{
-		if(Input.GetKey(KeyCode.Space))
+		if(Input.GetMouseButton(0))
 		{
 			this.playerWeapon.Fire();
 		}

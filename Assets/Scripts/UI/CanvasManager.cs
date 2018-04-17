@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
 
+// CTRL + SHIFT + A = your best friend
+
 public class CanvasManager : MonoBehaviour {
 
 	[Header("Game Manager")]
@@ -73,7 +75,10 @@ public class CanvasManager : MonoBehaviour {
 	private List<Slider> playerHealthBars;
 	[SerializeField]
 	private List<Text> gameTimeText;
-
+	[SerializeField]
+	private List<Image> playerGameColourImages;
+	[SerializeField]
+	private List<Text> playerNameTagText;
 
 
 	private void Start()
@@ -297,6 +302,20 @@ public class CanvasManager : MonoBehaviour {
 	#endregion
 
 	#region Game
+
+	public void OnGameUISetup(bool[] _isPlaying, int[] _health, string[] _names, Color[] _colours)
+	{
+		for(int i = 0; i < _isPlaying.Length; i++)
+		{
+			if(_isPlaying[i] == false)
+				continue;
+
+			this.playerHealthBars[i].value = _health[i];
+			this.playerNameTagText[i].text = _names[i];
+			this.playerGameColourImages[i].color = _colours[i];
+			this.playerTags[i].SetActive(true);
+		}
+	}
 
 	public void OnHealthUpdate(bool[] _isPlaying, int[] _health)
 	{

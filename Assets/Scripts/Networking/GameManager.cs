@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 
+// CTRL + SHIFT + A = your best friend
+
 #region Network/Game Manager
 
 public class GameManager : NetworkManager
@@ -31,6 +33,7 @@ public class GameManager : NetworkManager
 	private bool hasMadeSelection = false;
 	private bool isGameStarted = false; // TODO: change to enum for states
 	private bool hasInitializedPlayers = false;
+	private bool isPlayingGame = false;
 
 	// Client
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
@@ -141,7 +144,9 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.StartGame, this.OnGameStart);
 		this.client.RegisterHandler(CustomMsgType.InitPlayer, this.OnPlayerInitialize);
 		this.client.RegisterHandler(CustomMsgType.Move, this.OnMoveMessage);
+		this.client.RegisterHandler(CustomMsgType.GameUISetup, this.OnGameUISetupMessage);
 		this.client.RegisterHandler(CustomMsgType.Health, this.OnHealthMessage);
+		this.client.RegisterHandler(CustomMsgType.Death, this.OnDeathMessage);
 		yield return null;
 	}
 
@@ -609,8 +614,27 @@ public class GameManager : NetworkManager
 			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this, this.gameCanvas);
 		}
 
-		// Turn on level
-		//this.levelParent.SetActive(true);
+		// Send msg to update player UI
+		GameUISetupMessage sendMsg = new GameUISetupMessage();
+
+		List<string> tempNames = new List<string>();
+		List<Color> tempCol = new List<Color>();
+		for(int i = 0; i < this.maxConnections; i++)
+		{
+			tempNames.Add(this.playerInfoList[i].name);
+			tempCol.Add(this.playerInfoList[i].colour);
+		}
+
+		sendMsg.isPlaying = this.isPlayerReadyList.ToArray();
+		sendMsg.playerHealth = this.playerHealthList.ToArray();
+		sendMsg.playerNames = tempNames.ToArray();
+		sendMsg.playerColours = tempCol.ToArray();
+
+		NetworkServer.SendToAll(CustomMsgType.GameUISetup, sendMsg);
+
+		this.isPlayingGame = true;
+
+		this.StartCoroutine(this.CheckDeathRoutine());
 
 		yield return null;
 	}
@@ -700,6 +724,58 @@ public class GameManager : NetworkManager
 		this.canvasManager.OnHealthUpdate(msg.isPlaying, msg.playerHealth);
 	}
 
+	// Client
+	private void OnGameUISetupMessage(NetworkMessage _networkMessage)
+	{
+		GameUISetupMessage msg = _networkMessage.ReadMessage<GameUISetupMessage>();
+		this.canvasManager.OnGameUISetup(msg.isPlaying, msg.playerHealth, msg.playerNames, msg.playerColours);
+	}
+
+	// Server
+	private IEnumerator CheckDeathRoutine()
+	{
+		Debug.Log("Check death routine");
+
+		while(this.isPlayingGame)
+		{
+			for(int i = 0; i < this.maxConnections; i++)
+			{
+				if(this.playerHealthList[i] <= 0)
+				{
+					Debug.Log(this.playerInfoList[i].name + " has died");
+
+					// Send death msg to all clients
+					DeathMessage msg = new DeathMessage();
+					msg.objectId = (int)this.playerInfoList[i].playerObjectId;
+					msg.nextSpawnPosition = this.spawnTransforms[Random.Range(0, this.spawnTransforms.Count)].position;
+					NetworkServer.SendToAll(CustomMsgType.Death, msg);
+
+					// Reset our player's health
+					this.playerHealthList[i] = this.baseHealth;
+				}
+			}
+			yield return null;
+		}
+
+//		// Keep running the death check while the game is being played
+//		if(this.isPlayingGame)
+//		{
+//			this.StartCoroutine(this.CheckDeathRoutine());
+//		}
+
+		yield return null;
+	}
+
+	// Client
+	public void OnDeathMessage(NetworkMessage _networkMessage)
+	{
+		DeathMessage msg = _networkMessage.ReadMessage<DeathMessage>();
+
+		// Send msg to player object
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
+		tempPlayer.OnDeath(msg.nextSpawnPosition);
+	}
+
 	#endregion
 }
 
@@ -716,7 +792,9 @@ public class CustomMsgType
 	public static short InitPlayer = MsgType.Highest + 5;
 	public static short Move = MsgType.Highest + 6;
 	public static short BulletSpawn = MsgType.Highest + 7;
-	public static short Health = MsgType.Highest + 8;
+	public static short GameUISetup = MsgType.Highest + 8;
+	public static short Health = MsgType.Highest + 9;
+	public static short Death = MsgType.Highest + 10;
 }
 
 // Client to Server
@@ -779,12 +857,29 @@ public class BulletSpawnMessage : MessageBase
 	public float speed;
 }
 
+// Server to Client
 public class HealthMessage : MessageBase
 {
 	public bool[] isPlaying;
 	public int[] playerHealth;
 }
-	
+
+// Server to Client
+public class GameUISetupMessage : MessageBase
+{
+	public bool[] isPlaying;
+	public int[] playerHealth;
+	public string[] playerNames;
+	public Color[] playerColours;
+}
+
+// Server to Client
+public class DeathMessage : MessageBase
+{
+	public int objectId;
+	public Vector3 nextSpawnPosition;
+}
+
 #endregion
 
 #region Helper

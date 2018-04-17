@@ -416,6 +416,8 @@ MonoBehaviour:
   playerCamera: {fileID: 114971458621387990}
   gameManager: {fileID: 0}
   gameCanvas: {fileID: 0}
+  deathParticle: {fileID: 1897363512964560, guid: ae3369db6e47d6441bc185274a4fb5ad,
+    type: 2}
   health: 100
   name: 
   colour: {r: 0, g: 0, b: 0, a: 0}

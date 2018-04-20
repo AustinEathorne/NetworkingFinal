@@ -19,7 +19,7 @@ public class PlayerManager : NetworkBehaviour
 
 	[Header("Particles")]
 	[SerializeField]
-	private GameObject deathParticle;
+	private ParticleSystem deathParticle;
 
 	[Header("Player Values")]
 	[SerializeField]
@@ -102,7 +102,7 @@ public class PlayerManager : NetworkBehaviour
 		this.nextSpawnPosition = _nextSpawnPosition;
 
 		// Player Death particle
-		GameObject particle = Instantiate(this.deathParticle, this.transform.position, this.transform.rotation) as GameObject;
+		this.deathParticle.Play();
 
 		// Disable input
 

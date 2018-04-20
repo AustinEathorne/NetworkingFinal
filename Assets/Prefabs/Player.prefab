@@ -456,7 +456,7 @@ MonoBehaviour:
   playerCamera: {fileID: 114971458621387990}
   linearSpeed: 4
   jumpSpeed: 5
-  kickbackSpeed: 15
+  kickbackSpeed: 30
   networkSendRate: 5
   isInputEnabled: 0
 --- !u!114 &114262621673804986
@@ -474,7 +474,7 @@ MonoBehaviour:
   bullet: {fileID: 1939494567277076, guid: 81f682e775d37c244bff2aa221e2ed13, type: 2}
   bulletSpawn: {fileID: 4127957205731808}
   rigidbody: {fileID: 54663493082415018}
-  fireDelay: 0.35
+  fireDelay: 0.6
   bulletSpeed: 8
   weaponKickbackForce: 100
 --- !u!114 &114439244112167944

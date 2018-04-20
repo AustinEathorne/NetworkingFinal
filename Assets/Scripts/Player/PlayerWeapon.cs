@@ -20,8 +20,6 @@ public class PlayerWeapon : MonoBehaviour {
 	private float fireDelay;
 	[SerializeField]
 	private float bulletSpeed;
-	[SerializeField]
-	private float weaponKickbackForce;
 
 	private bool canFire = true;
 

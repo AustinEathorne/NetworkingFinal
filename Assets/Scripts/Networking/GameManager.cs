@@ -72,6 +72,9 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private List<int> playerHealthList;
 
+	[Header("Respawn")]
+	[SerializeField]
+	private float respawnTime = 3.0f;
 
 	#region Setup/Create
 
@@ -704,12 +707,17 @@ public class GameManager : NetworkManager
 		{
 			if(this.playerInfoList[i].playerObjectId == _objectId)
 			{
-				this.playerHealthList[i] -= this.baseDamage;
+				// Check to make sure the player isn't already dead
+				if(this.playerHealthList[i] > 0)
+				{
+					this.playerHealthList[i] -= this.baseDamage;
 
-				HealthMessage msg = new HealthMessage();
-				msg.isPlaying = this.isPlayerReadyList.ToArray();
-				msg.playerHealth = this.playerHealthList.ToArray();
-				NetworkServer.SendToAll(CustomMsgType.Health, msg);
+					HealthMessage msg = new HealthMessage();
+					msg.isPlaying = this.isPlayerReadyList.ToArray();
+					msg.playerHealth = this.playerHealthList.ToArray();
+					NetworkServer.SendToAll(CustomMsgType.Health, msg);
+				}
+
 				break;
 			}
 		}
@@ -751,22 +759,12 @@ public class GameManager : NetworkManager
 					msg.nextSpawnPosition = this.spawnTransforms[Random.Range(0, this.spawnTransforms.Count)].position;
 					NetworkServer.SendToAll(CustomMsgType.Death, msg);
 
-					// Reset our player's health
-					this.playerHealthList[i] = this.baseHealth;
-
-					// TODO: send health update in spawn msg?
-					// Send health update msg
-					HealthMessage healthMsg = new HealthMessage();
-					healthMsg.isPlaying = this.isPlayerReadyList.ToArray();
-					healthMsg.playerHealth = this.playerHealthList.ToArray();
-					NetworkServer.SendToAll(CustomMsgType.Health, healthMsg);
+					this.StartCoroutine(this.RespawnRoutine(i));
 					break;
 				}
 			}
 			yield return null;
 		}
-
-		yield return null;
 	}
 
 	// Client
@@ -777,6 +775,26 @@ public class GameManager : NetworkManager
 		// Send msg to player object
 		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
 		tempPlayer.OnDeath(msg.nextSpawnPosition);
+
+		// Run respawn coroutine
+		tempPlayer.StartCoroutine(tempPlayer.OnRespawn(this.respawnTime));
+	}
+
+	// Server
+	private IEnumerator RespawnRoutine(int _index)
+	{
+		yield return new WaitForSeconds(this.respawnTime);
+
+		// Reset player health
+		this.playerHealthList[_index] = this.baseHealth;
+
+		// Send health update msg
+		HealthMessage healthMsg = new HealthMessage();
+    	healthMsg.isPlaying = this.isPlayerReadyList.ToArray();
+    	healthMsg.playerHealth = this.playerHealthList.ToArray();
+     	NetworkServer.SendToAll(CustomMsgType.Health, healthMsg);
+
+		yield return null;
 	}
 
 	#endregion

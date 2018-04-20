@@ -85,14 +85,8 @@ public class PlayerManager : NetworkBehaviour
 	// Local/Replication
 	public void OnShotTaken()
 	{
-		// Player Shot Takens particle
+		// Player Shot Taken particle
 		//GameObject particle = Instantiate(this.deathParticle, this.transform.position, this.transform.rotation) as GameObject;
-
-		// Disable input
-
-		// Wait
-
-		// Respawn
 	}
 
 	// Local/Replication
@@ -105,26 +99,31 @@ public class PlayerManager : NetworkBehaviour
 		this.deathParticle.Play();
 
 		// Disable input
-
-		// Wait
-
-		// Respawn
+		if(isLocalPlayer)
+		{
+			this.isInputEnabled = false;
+			this.playerController.SetIsEnabled(false);
+		}
 	}
-
+		
 	// Local/Replication
-	public void OnRespawnWait()
+	public IEnumerator OnRespawn(float _time)
 	{
-		// update respawn timer
-	}
+		// run canvas routine if local player
 
-	// Local/Replication
-	public void OnRespawn()
-	{
-		// Turn off player mesh renderer
+		yield return new WaitForSeconds(_time);
 
 		// Move to spawn
+		this.transform.position = this.nextSpawnPosition;
 
-		// Re-orient player
+		// Enable Input
+		if(isLocalPlayer)
+		{
+			this.isInputEnabled = true;
+			this.playerController.SetIsEnabled(true);
+		}
+
+		yield return null;
 	}
 
 }

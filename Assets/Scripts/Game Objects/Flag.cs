@@ -3,13 +3,26 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 
-public class Bullet : NetworkBehaviour
+public class Flag : NetworkBehaviour
 {
-	[SerializeField]
-	NetworkIdentity networkIdentity;
+	private bool isHeld = false;
+	public bool IsHeld 
+	{
+		get { return this.isHeld; }
+		set { this.isHeld = value; }
+	}
 
 	[SerializeField]
-	private float destroyTime = 3.0f;
+	private float launchSpeed;
+	[SerializeField]
+	private Rigidbody rb;
+	[SerializeField]
+	private Collider collider;
+	[SerializeField]
+	private ParticleSystem particleSystem;
+
+	[SerializeField]
+	NetworkIdentity networkIdentity;
 	[SerializeField]
 	private float networkSendRate = 5;
 	private float networkSendCount = 0.0f;
@@ -25,15 +38,17 @@ public class Bullet : NetworkBehaviour
 	private Quaternion lastRealRotation;
 	private float timeStartedLerping;
 	private float timeToLerp;
-	public int ownerId;
 
-	// Server
+	public GameManager gameManager;
+
+
+
 	void Start () 
 	{
 		if(!this.isClient)
 		{
 			this.StartCoroutine(this.MovementMessageRoutine());
-			this.StartCoroutine(this.DeathRoutine());
+			this.rb = this.GetComponent<Rigidbody>();
 		}
 		else
 		{
@@ -42,7 +57,7 @@ public class Bullet : NetworkBehaviour
 		}
 	}
 
-	// Server
+	// Server & client
 	private IEnumerator MovementMessageRoutine()
 	{
 		this.timeBetweenMovementStart = Time.time;
@@ -61,14 +76,50 @@ public class Bullet : NetworkBehaviour
 		msg.position = this.transform.position;
 		msg.rotation = this.transform.rotation;
 		msg.time = (this.timeBetweenMovementEnd - this.timeBetweenMovementStart);
-		msg.objectType = 1;
+		msg.objectType = 2;
 
 		//NetworkManager.singleton.client.Send(CustomMsgType.Move, msg);
 
 		NetworkServer.SendToAll(CustomMsgType.Move, msg);
 	}
+		
+	// Server
+	public IEnumerator DropFlag()
+	{
+		this.transform.parent = null;
 
-	// replication
+		// shoot flag up into the air
+		Vector3 vel = Vector3.up * this.launchSpeed;
+		this.rb.velocity = vel;
+
+		yield return new WaitForSeconds(1.5f);
+		this.collider.enabled = true;
+		this.isHeld = false;
+	}
+
+	// Server
+	private void OnTriggerEnter(Collider _col)
+	{
+		if(!isServer)
+		{
+			return;
+		}
+
+		if(this.isHeld)
+		{
+			return;
+		}
+
+		if(_col.transform.tag == "Player")
+		{
+			this.isHeld = true;
+			this.collider.enabled = false;
+			this.transform.parent = _col.transform;
+			this.gameManager.OnFlagInteraction(true, (int)_col.transform.GetComponent<NetworkIdentity>().netId.Value);
+		}
+	}
+
+	// Replication - client
 	private void FixedUpdate()
 	{
 		if(!this.isClient)
@@ -79,7 +130,7 @@ public class Bullet : NetworkBehaviour
 		this.NetworkMovementLerp();
 	}
 
-	// replication - client
+	// Replication - client
 	public void OnMovementReceived(Vector3 _position, Quaternion _rotation, float _time)
 	{
 		if(!this.isClient)
@@ -106,7 +157,7 @@ public class Bullet : NetworkBehaviour
 		this.timeStartedLerping = Time.time;
 	}
 
-	// replication - client
+	// Replication - client
 	private void NetworkMovementLerp()
 	{
 		//Debug.Log("Movement Lerp");
@@ -134,37 +185,16 @@ public class Bullet : NetworkBehaviour
 		}
 	}
 
-	// Server
-	private IEnumerator DeathRoutine()
+	// Replication - client
+	public void OnFlagInteraction(bool _isHeld)
 	{
-		yield return new WaitForSeconds(this.destroyTime);
-		NetworkServer.Destroy(this.gameObject);
-		//Debug.Log("Destroy bullet");
-		yield return null;
-	}
-
-	public void OnCollisionEnter(Collision _collision)
-	{
-		if(this.isClient)
+		if(_isHeld)
 		{
-			return;
+			this.particleSystem.Stop();
 		}
-
-		Debug.Log("Bullet Collision");
-
-		if(_collision.gameObject.tag == "Player")
+		else
 		{
-			if((int)_collision.gameObject.GetComponent<NetworkIdentity>().netId.Value != this.ownerId)
-			{
-				GameManager temp =  GameObject.FindGameObjectWithTag("GameManager").GetComponent<GameManager>();
-				temp.OnBulletHit((int)_collision.transform.GetComponent<NetworkIdentity>().netId.Value);
-				NetworkServer.Destroy(this.gameObject);
-			}
+			this.particleSystem.Play();
 		}
-		else if(_collision.gameObject.tag == "Floor")
-		{
-			NetworkServer.Destroy(this.gameObject);
-		}
-
 	}
 }

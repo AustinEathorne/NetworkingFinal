@@ -20,12 +20,22 @@ public class PlayerMovement : NetworkBehaviour
 	private float jumpSpeed;
 	[SerializeField]
 	private float kickbackSpeed;
+
+	private float forwardSpeed;
+	private float backwardSpeed;
+	private float leftSpeed;
+	private float rightSpeed;
+	private float totalSpeed;
+
 	[SerializeField]
 	private float networkSendRate;
 	private float networkSendCount = 0.0f;
+
 	private float timeBetweenMovementStart = 0.0f;
 	private float timeBetweenMovementEnd = 0.0f;
+
 	private int floorMask;
+
 	public bool isInputEnabled = false;
 	private bool isJumping = false;
 	private bool isInAir = false;
@@ -76,8 +86,16 @@ public class PlayerMovement : NetworkBehaviour
 	private void UpdatePlayerMovement()
 	{
 		// linear
-		float x = Input.GetAxis("Horizontal");
-		float z = Input.GetAxis("Vertical");
+		//float x = Input.GetAxis("Horizontal");
+		//float z = Input.GetAxis("Vertical");
+
+		this.forwardSpeed = Input.GetKey(KeyCode.W) ? this.linearSpeed : 0.0f;
+		this.backwardSpeed = Input.GetKey(KeyCode.S) ? -this.linearSpeed : 0.0f;
+		this.leftSpeed = Input.GetKey(KeyCode.A) ? -this.linearSpeed : 0.0f;
+		this.rightSpeed = Input.GetKey(KeyCode.D) ? this.linearSpeed : 0.0f;
+
+		float x = this.leftSpeed + this.rightSpeed;
+		float z = this.forwardSpeed + this.backwardSpeed;
 
 		// jump
 		float y = this.rigidbody.velocity.y;
@@ -92,7 +110,7 @@ public class PlayerMovement : NetworkBehaviour
 			this.isJumping = false;
 		}
 
-		Vector3 totalVel = new Vector3(x * this.linearSpeed, y, z * this.linearSpeed);
+		Vector3 totalVel = new Vector3(x, y, z);
 
 		// weapon kickback
 		if(this.isKickingBack)

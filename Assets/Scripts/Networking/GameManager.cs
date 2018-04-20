@@ -18,6 +18,7 @@ public class GameManager : NetworkManager
 		public uint playerObjectId;
 		public string name;
 		public Color colour;
+		public bool hasFlag;
 	}
 
 	// Server
@@ -62,7 +63,11 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private List<Transform> spawnTransforms; // Server
 	[SerializeField]
+	private Transform flagSpawn; // Server
+	[SerializeField]
 	private GameObject bullet;
+	private Flag gameFlag;
+	private int flagId; // Server
 
 	[Header("Player")]
 	[SerializeField]
@@ -72,6 +77,9 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private List<int> playerHealthList;
 
+	[Header("Respawn")]
+	[SerializeField]
+	private float respawnTime = 3.0f;
 
 	#region Setup/Create
 
@@ -136,6 +144,7 @@ public class GameManager : NetworkManager
 		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
 		NetworkServer.RegisterHandler(CustomMsgType.Move, this.OnMovement);
 		NetworkServer.RegisterHandler(CustomMsgType.BulletSpawn, this.OnBulletSpawn);
+		NetworkServer.RegisterHandler(CustomMsgType.DropFlag, this.OnFlagDrop);
 		yield return null;
 	}
 
@@ -148,6 +157,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.GameUISetup, this.OnGameUISetupMessage);
 		this.client.RegisterHandler(CustomMsgType.Health, this.OnHealthMessage);
 		this.client.RegisterHandler(CustomMsgType.Death, this.OnDeathMessage);
+		this.client.RegisterHandler(CustomMsgType.Flag, this.OnFlagInteraction);
 		yield return null;
 	}
 
@@ -173,6 +183,7 @@ public class GameManager : NetworkManager
 				// Update player info
 				newPlayerInfo.connectionId = _networkConnection.connectionId;
 				newPlayerInfo.playerIndex = i;
+				newPlayerInfo.hasFlag = false;
 				this.playerHealthList[i] = this.baseHealth;
 
 				// Add new player info to list
@@ -424,6 +435,9 @@ public class GameManager : NetworkManager
 		// Turn on level
 		this.levelParent.SetActive(true);
 
+		// Spawn flag
+		this.SpawnFlag();
+
 		this.canvasManager.CloseMenu();
 
 		this.serverCam.SetActive(true);
@@ -479,11 +493,24 @@ public class GameManager : NetworkManager
 	public void OnBulletSpawn(NetworkMessage _networkMessage)
 	{
 		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
+
 		GameObject clone = Instantiate(this.bullet, msg.position, msg.rotation) as GameObject;
+		clone.GetComponent<Bullet>().ownerId = msg.objectId;
+
 		NetworkServer.Spawn(clone);
-		//clone.transform.position = msg.position;
-		//clone.transform.rotation = msg.rotation;
+
 		clone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
+	}
+
+	// Server
+	private void SpawnFlag()
+	{
+		GameObject clone = Instantiate(this.spawnPrefabs[2], this.flagSpawn.position, this.flagSpawn.rotation) as GameObject;
+		this.gameFlag = clone.GetComponent<Flag>();
+		this.gameFlag.gameManager = this;
+		NetworkServer.Spawn(clone);
+
+		this.flagId = (int)clone.GetComponent<NetworkIdentity>().netId.Value;
 	}
 
 	#endregion
@@ -688,9 +715,11 @@ public class GameManager : NetworkManager
 			if(temp)
 				temp.OnMovementReceived(msg.position, msg.rotation, msg.time);
 		}
-		else
+		else if (msg.objectType == 2)
 		{
-			
+			Flag temp = NetworkHelper.GetObjectByNetIdValue<Flag>((uint)msg.objectId, false);
+			if(temp)
+				temp.OnMovementReceived(msg.position, msg.rotation, msg.time);
 		}
 	}
 
@@ -704,12 +733,25 @@ public class GameManager : NetworkManager
 		{
 			if(this.playerInfoList[i].playerObjectId == _objectId)
 			{
-				this.playerHealthList[i] -= this.baseDamage;
+				// Check to make sure the player isn't already dead
+				if(this.playerHealthList[i] > 0)
+				{
+					this.playerHealthList[i] -= this.baseDamage;
 
-				HealthMessage msg = new HealthMessage();
-				msg.isPlaying = this.isPlayerReadyList.ToArray();
-				msg.playerHealth = this.playerHealthList.ToArray();
-				NetworkServer.SendToAll(CustomMsgType.Health, msg);
+					HealthMessage msg = new HealthMessage();
+					msg.isPlaying = this.isPlayerReadyList.ToArray();
+					msg.playerHealth = this.playerHealthList.ToArray();
+					NetworkServer.SendToAll(CustomMsgType.Health, msg);
+
+					// Check if the player is holding the flag
+					if(this.playerInfoList[i].hasFlag)
+					{
+						// update our flag
+						this.gameFlag.StartCoroutine(this.gameFlag.DropFlag());
+						this.OnFlagInteraction(false, _objectId);
+					}
+				}
+
 				break;
 			}
 		}
@@ -751,22 +793,12 @@ public class GameManager : NetworkManager
 					msg.nextSpawnPosition = this.spawnTransforms[Random.Range(0, this.spawnTransforms.Count)].position;
 					NetworkServer.SendToAll(CustomMsgType.Death, msg);
 
-					// Reset our player's health
-					this.playerHealthList[i] = this.baseHealth;
-
-					// TODO: send health update in spawn msg?
-					// Send health update msg
-					HealthMessage healthMsg = new HealthMessage();
-					healthMsg.isPlaying = this.isPlayerReadyList.ToArray();
-					healthMsg.playerHealth = this.playerHealthList.ToArray();
-					NetworkServer.SendToAll(CustomMsgType.Health, healthMsg);
+					this.StartCoroutine(this.RespawnRoutine(i));
 					break;
 				}
 			}
 			yield return null;
 		}
-
-		yield return null;
 	}
 
 	// Client
@@ -777,6 +809,82 @@ public class GameManager : NetworkManager
 		// Send msg to player object
 		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
 		tempPlayer.OnDeath(msg.nextSpawnPosition);
+
+		// Run respawn coroutine
+		tempPlayer.StartCoroutine(tempPlayer.OnRespawn(this.respawnTime));
+	}
+
+	// Server
+	private IEnumerator RespawnRoutine(int _index)
+	{
+		yield return new WaitForSeconds(this.respawnTime);
+
+		// Reset player health
+		this.playerHealthList[_index] = this.baseHealth;
+
+		// Send health update msg
+		HealthMessage healthMsg = new HealthMessage();
+    	healthMsg.isPlaying = this.isPlayerReadyList.ToArray();
+    	healthMsg.playerHealth = this.playerHealthList.ToArray();
+     	NetworkServer.SendToAll(CustomMsgType.Health, healthMsg);
+
+		yield return null;
+	}
+
+	// Server - When a client collides with the flag, or is by a bullet causing them to drop it
+	public void OnFlagInteraction(bool _isHeld, int _playerId)
+	{
+		Debug.Log("On Flag Interaction");
+
+		// Update our list
+		for(int i = 0; i < this.numPlayers; i++)
+		{
+			if(this.playerInfoList[i].playerObjectId == _playerId)
+			{
+				PlayerInfo pInfo = this.playerInfoList[i];
+				pInfo.hasFlag = _isHeld;
+				this.playerInfoList[i] = pInfo;
+			}
+		}
+
+		// Update score count
+
+
+		// Send msg to clients
+		FlagInteractionMessage msg = new FlagInteractionMessage();
+		msg.playerId = _playerId;
+		msg.flagId = this.flagId;
+		msg.isHeld = _isHeld;
+		NetworkServer.SendToAll(CustomMsgType.Flag, msg);
+	}
+
+	// Client - When a client collides with the flag, or a bullet causing them to drop it
+	public void OnFlagInteraction(NetworkMessage _networkMessage)
+	{
+		Debug.Log("On Flag Interaction Client");
+		FlagInteractionMessage msg = _networkMessage.ReadMessage<FlagInteractionMessage>();
+
+		Flag clientFlag = NetworkHelper.GetObjectByNetIdValue<Flag>((uint)msg.flagId, false);
+		clientFlag.OnFlagInteraction(msg.isHeld);
+
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.playerId, false);
+		tempPlayer.SetHasFlag(msg.isHeld);
+	}
+
+	// Server - when the client chooses to drop the flag
+	public void OnFlagDrop(NetworkMessage _networkMessage)
+	{
+		Debug.Log("On Flag Drop");
+		// update our flag
+		this.gameFlag.StartCoroutine(this.gameFlag.DropFlag());
+
+		// update client flags
+		FlagDropMessage netMsg = _networkMessage.ReadMessage<FlagDropMessage>();
+		FlagInteractionMessage msg = new FlagInteractionMessage();
+		msg.playerId = netMsg.playerId;
+		msg.flagId = this.flagId;
+		msg.isHeld = false;
+		NetworkServer.SendToAll(CustomMsgType.Flag, msg);
 	}
 
 	#endregion
@@ -798,6 +906,8 @@ public class CustomMsgType
 	public static short GameUISetup = MsgType.Highest + 8;
 	public static short Health = MsgType.Highest + 9;
 	public static short Death = MsgType.Highest + 10;
+	public static short Flag = MsgType.Highest + 11;
+	public static short DropFlag = MsgType.Highest + 12;
 }
 
 // Client to Server
@@ -855,6 +965,7 @@ public class MoveMessage : MessageBase
 // Client to Server
 public class BulletSpawnMessage : MessageBase
 {
+	public int objectId;
 	public Vector3 position;
 	public Quaternion rotation;
 	public float speed;
@@ -881,6 +992,20 @@ public class DeathMessage : MessageBase
 {
 	public int objectId;
 	public Vector3 nextSpawnPosition;
+}
+
+// Server to Client
+public class FlagInteractionMessage : MessageBase
+{
+	public int playerId;
+	public int flagId;
+	public bool isHeld;
+}
+
+// Client to Server
+public class FlagDropMessage : MessageBase
+{
+	public int playerId;
 }
 
 #endregion

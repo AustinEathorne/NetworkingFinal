@@ -24,12 +24,19 @@ public class PlayerManager : NetworkBehaviour
 	[Header("Player Values")]
 	[SerializeField]
 	private int health = 100;
-	public string name;
-	public Color colour;
+	[SerializeField]
+	private string name;
+	[SerializeField]
+	private Color colour;
+	[SerializeField]
+	private bool hasFlag = false;
 
 	private Vector3 nextSpawnPosition = new Vector3(0.0f, 0.0f, 0.0f);
 
 	private bool isInputEnabled = false;
+
+	private int netIdValue;
+
 
 	// Set object colour, etc
 	public void Initialize(string _name, Color _colour, Vector3 _spawnPosition, GameManager _gameManager, GameObject _gameCanvas)
@@ -85,14 +92,8 @@ public class PlayerManager : NetworkBehaviour
 	// Local/Replication
 	public void OnShotTaken()
 	{
-		// Player Shot Takens particle
+		// Player Shot Taken particle
 		//GameObject particle = Instantiate(this.deathParticle, this.transform.position, this.transform.rotation) as GameObject;
-
-		// Disable input
-
-		// Wait
-
-		// Respawn
 	}
 
 	// Local/Replication
@@ -105,26 +106,56 @@ public class PlayerManager : NetworkBehaviour
 		this.deathParticle.Play();
 
 		// Disable input
-
-		// Wait
-
-		// Respawn
+		if(isLocalPlayer)
+		{
+			this.isInputEnabled = false;
+			this.playerController.SetIsEnabled(false);
+		}
 	}
-
+		
 	// Local/Replication
-	public void OnRespawnWait()
+	public IEnumerator OnRespawn(float _time)
 	{
-		// update respawn timer
-	}
+		// run canvas routine if local player
 
-	// Local/Replication
-	public void OnRespawn()
-	{
-		// Turn off player mesh renderer
+		yield return new WaitForSeconds(_time);
 
 		// Move to spawn
+		this.transform.position = this.nextSpawnPosition;
 
-		// Re-orient player
+		// Enable Input
+		if(isLocalPlayer)
+		{
+			this.isInputEnabled = true;
+			this.playerController.SetIsEnabled(true);
+		}
+
+		yield return null;
 	}
 
+	// Local
+	public void DropFlag()
+	{
+		if(this.hasFlag)
+		{
+			Debug.Log("Drop Flag");
+			this.hasFlag = false;
+
+			// send msg to server
+			FlagDropMessage msg = new FlagDropMessage();
+			msg.playerId = (int)this.netId.Value;
+			NetworkManager.singleton.client.Send(CustomMsgType.DropFlag, msg);
+		}
+	}
+
+	public void SetHasFlag(bool _value)
+	{
+		Debug.Log("Set has flag: " + _value.ToString());
+		this.hasFlag = _value;
+	}
+
+	public bool GetHasFlag()
+	{
+		return this.hasFlag;
+	}
 }

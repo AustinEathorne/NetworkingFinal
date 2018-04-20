@@ -4,6 +4,9 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 
+// CTRL + SHIFT + A/ = your best friend
+// CTRL + M + O? in vs
+
 #region Network/Game Manager
 
 public class GameManager : NetworkManager
@@ -31,6 +34,7 @@ public class GameManager : NetworkManager
 	private bool hasMadeSelection = false;
 	private bool isGameStarted = false; // TODO: change to enum for states
 	private bool hasInitializedPlayers = false;
+	private bool isPlayingGame = false;
 
 	// Client
 	public PlayerInfo clientPlayerInfo; // used to set up player by client
@@ -143,7 +147,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.Move, this.OnMoveMessage);
 		this.client.RegisterHandler(CustomMsgType.GameUISetup, this.OnGameUISetupMessage);
 		this.client.RegisterHandler(CustomMsgType.Health, this.OnHealthMessage);
-		NetworkServer.RegisterHandler(CustomMsgType.BulletSpawn, this.OnBulletSpawnClient);
+		this.client.RegisterHandler(CustomMsgType.Death, this.OnDeathMessage);
 		yield return null;
 	}
 
@@ -472,37 +476,14 @@ public class GameManager : NetworkManager
 		}
 	}
 
-	// Server - Receive bullet spawn msg from the client
 	public void OnBulletSpawn(NetworkMessage _networkMessage)
 	{
 		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
 		GameObject clone = Instantiate(this.bullet, msg.position, msg.rotation) as GameObject;
 		NetworkServer.Spawn(clone);
-		clone.transform.position = msg.position;
-		clone.transform.rotation = msg.rotation;
-		//sclone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
-
-		NetworkServer.SendToAll(CustomMsgType.BulletSpawn, msg);
-	}
-
-	// Client
-	public void OnBulletSpawnClient(NetworkMessage _networkMessage)
-	{
-		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
-
-		// make sure this object doesn't already exist (was spawned by this client)
-		Bullet temp = NetworkHelper.GetObjectByNetIdValue<Bullet>((uint)msg.objectId, false);
-		if(temp)
-		{
-			Debug.Log("Bullet already exists on this client");
-		}
-		else
-		{
-			Debug.Log("Spawn bullet from other client");
-			GameObject clone = Instantiate(this.bullet, msg.position, msg.rotation) as GameObject;
-			clone.transform.position = msg.position;
-			clone.transform.rotation = msg.rotation;
-		}
+		//clone.transform.position = msg.position;
+		//clone.transform.rotation = msg.rotation;
+		clone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
 	}
 
 	#endregion
@@ -652,6 +633,10 @@ public class GameManager : NetworkManager
 
 		NetworkServer.SendToAll(CustomMsgType.GameUISetup, sendMsg);
 
+		this.isPlayingGame = true;
+
+		this.StartCoroutine(this.CheckDeathRoutine());
+
 		yield return null;
 	}
 
@@ -680,27 +665,6 @@ public class GameManager : NetworkManager
 			tempPlayer.OnPlayerMove(temp.position, temp.rotation, temp.time);
 
 			NetworkServer.SendToAll(CustomMsgType.Move, temp);
-		}
-		else if(temp.objectType == 1)
-		{
-			Bullet bullet = NetworkHelper.GetObjectByNetIdValue<Bullet>((uint)temp.objectId, false);
-			// Update server replication
-			if(bullet)
-				bullet.OnMovementReceived(temp.position, temp.rotation, temp.time);
-
-			// Update clients
-			MoveMessage sendMsg = new MoveMessage();
-			sendMsg.objectId = temp.objectId;
-			sendMsg.objectType = 1;
-			sendMsg.position = temp.position;
-			sendMsg.rotation = temp.rotation;
-			sendMsg.time = temp.time;
-
-			NetworkServer.SendToAll(CustomMsgType.Move, sendMsg);
-		}
-		else
-		{
-			
 		}
 	}
 
@@ -733,8 +697,6 @@ public class GameManager : NetworkManager
 	// Server - bullets are server owned objects
 	public void OnBulletHit(int _objectId)
 	{
-		//TODO this. is being called on the client somehow
-
 		Debug.Log("Player object " + _objectId.ToString() + " got hit!");
 
 		// Find player in our list
@@ -770,6 +732,53 @@ public class GameManager : NetworkManager
 		this.canvasManager.OnGameUISetup(msg.isPlaying, msg.playerHealth, msg.playerNames, msg.playerColours);
 	}
 
+	// Server
+	private IEnumerator CheckDeathRoutine()
+	{
+		Debug.Log("Check death routine");
+
+		while(this.isPlayingGame)
+		{
+			for(int i = 0; i < this.maxConnections; i++)
+			{
+				if(this.playerHealthList[i] <= 0)
+				{
+					Debug.Log(this.playerInfoList[i].name + " has died");
+
+					// Send death msg to all clients
+					DeathMessage msg = new DeathMessage();
+					msg.objectId = (int)this.playerInfoList[i].playerObjectId;
+					msg.nextSpawnPosition = this.spawnTransforms[Random.Range(0, this.spawnTransforms.Count)].position;
+					NetworkServer.SendToAll(CustomMsgType.Death, msg);
+
+					// Reset our player's health
+					this.playerHealthList[i] = this.baseHealth;
+
+					// TODO: send health update in spawn msg?
+					// Send health update msg
+					HealthMessage healthMsg = new HealthMessage();
+					healthMsg.isPlaying = this.isPlayerReadyList.ToArray();
+					healthMsg.playerHealth = this.playerHealthList.ToArray();
+					NetworkServer.SendToAll(CustomMsgType.Health, healthMsg);
+					break;
+				}
+			}
+			yield return null;
+		}
+
+		yield return null;
+	}
+
+	// Client
+	public void OnDeathMessage(NetworkMessage _networkMessage)
+	{
+		DeathMessage msg = _networkMessage.ReadMessage<DeathMessage>();
+
+		// Send msg to player object
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
+		tempPlayer.OnDeath(msg.nextSpawnPosition);
+	}
+
 	#endregion
 }
 
@@ -788,6 +797,7 @@ public class CustomMsgType
 	public static short BulletSpawn = MsgType.Highest + 7;
 	public static short GameUISetup = MsgType.Highest + 8;
 	public static short Health = MsgType.Highest + 9;
+	public static short Death = MsgType.Highest + 10;
 }
 
 // Client to Server
@@ -845,9 +855,9 @@ public class MoveMessage : MessageBase
 // Client to Server
 public class BulletSpawnMessage : MessageBase
 {
-	public int objectId;
 	public Vector3 position;
 	public Quaternion rotation;
+	public float speed;
 }
 
 // Server to Client
@@ -866,6 +876,12 @@ public class GameUISetupMessage : MessageBase
 	public Color[] playerColours;
 }
 
+// Server to Client
+public class DeathMessage : MessageBase
+{
+	public int objectId;
+	public Vector3 nextSpawnPosition;
+}
 
 #endregion
 

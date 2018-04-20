@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
 
+// CTRL + SHIFT + A = your best friend
+
 public class CanvasManager : MonoBehaviour {
 
 	[Header("Game Manager")]
@@ -77,7 +79,6 @@ public class CanvasManager : MonoBehaviour {
 	private List<Image> playerGameColourImages;
 	[SerializeField]
 	private List<Text> playerNameTagText;
-
 
 
 	private void Start()

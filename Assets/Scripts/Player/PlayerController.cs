@@ -4,6 +4,12 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour 
 {
+	[Header("Input")]
+	[SerializeField]
+	private KeyCode fireKey;
+	[SerializeField]
+	private KeyCode jumpKey;
+
 	[Header("Components")]
 	[SerializeField]
 	private PlayerManager playerManager;
@@ -27,9 +33,14 @@ public class PlayerController : MonoBehaviour
 
 	public void GetInput()
 	{
-		if(Input.GetKey(KeyCode.Space))
+		if(Input.GetKey(this.fireKey))
 		{
 			this.playerWeapon.Fire();
+		}
+
+		if(Input.GetKey(this.jumpKey))
+		{
+			this.playerMovement.Jump();
 		}
 	}
 

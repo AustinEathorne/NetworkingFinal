@@ -18,6 +18,7 @@ public class GameManager : NetworkManager
 		public uint playerObjectId;
 		public string name;
 		public Color colour;
+		public bool hasFlag;
 	}
 
 	// Server
@@ -156,7 +157,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.GameUISetup, this.OnGameUISetupMessage);
 		this.client.RegisterHandler(CustomMsgType.Health, this.OnHealthMessage);
 		this.client.RegisterHandler(CustomMsgType.Death, this.OnDeathMessage);
-		this.client.RegisterHandler(CustomMsgType.Flag, this.OnFlagPickup);
+		this.client.RegisterHandler(CustomMsgType.Flag, this.OnFlagInteraction);
 		yield return null;
 	}
 
@@ -182,6 +183,7 @@ public class GameManager : NetworkManager
 				// Update player info
 				newPlayerInfo.connectionId = _networkConnection.connectionId;
 				newPlayerInfo.playerIndex = i;
+				newPlayerInfo.hasFlag = false;
 				this.playerHealthList[i] = this.baseHealth;
 
 				// Add new player info to list
@@ -740,6 +742,14 @@ public class GameManager : NetworkManager
 					msg.isPlaying = this.isPlayerReadyList.ToArray();
 					msg.playerHealth = this.playerHealthList.ToArray();
 					NetworkServer.SendToAll(CustomMsgType.Health, msg);
+
+					// Check if the player is holding the flag
+					if(this.playerInfoList[i].hasFlag)
+					{
+						// update our flag
+						this.gameFlag.StartCoroutine(this.gameFlag.DropFlag());
+						this.OnFlagInteraction(false, _objectId);
+					}
 				}
 
 				break;
@@ -821,21 +831,47 @@ public class GameManager : NetworkManager
 		yield return null;
 	}
 
-	// Server
-	public void OnFlagPickup(int _playerId)
+	// Server - When a client collides with the flag, or is by a bullet causing them to drop it
+	public void OnFlagInteraction(bool _isHeld, int _playerId)
 	{
-		Debug.Log("On Flag Pickup");
+		Debug.Log("On Flag Interaction");
+
+		// Update our list
+		for(int i = 0; i < this.numPlayers; i++)
+		{
+			if(this.playerInfoList[i].playerObjectId == _playerId)
+			{
+				PlayerInfo pInfo = this.playerInfoList[i];
+				pInfo.hasFlag = _isHeld;
+				this.playerInfoList[i] = pInfo;
+			}
+		}
+
 		// Update score count
+
 
 		// Send msg to clients
 		FlagInteractionMessage msg = new FlagInteractionMessage();
 		msg.playerId = _playerId;
 		msg.flagId = this.flagId;
-		msg.isHeld = true;
+		msg.isHeld = _isHeld;
 		NetworkServer.SendToAll(CustomMsgType.Flag, msg);
 	}
 
-	// Server
+	// Client - When a client collides with the flag, or a bullet causing them to drop it
+	public void OnFlagInteraction(NetworkMessage _networkMessage)
+	{
+		Debug.Log("On Flag Interaction Client");
+		FlagInteractionMessage msg = _networkMessage.ReadMessage<FlagInteractionMessage>();
+
+		Flag clientFlag = NetworkHelper.GetObjectByNetIdValue<Flag>((uint)msg.flagId, false);
+		clientFlag.OnFlagInteraction(msg.isHeld);
+
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.playerId, false);
+		tempPlayer.SetHasFlag(msg.isHeld);
+	}
+
+	// Server - when the client chooses to drop the flag
 	public void OnFlagDrop(NetworkMessage _networkMessage)
 	{
 		Debug.Log("On Flag Drop");
@@ -849,19 +885,6 @@ public class GameManager : NetworkManager
 		msg.flagId = this.flagId;
 		msg.isHeld = false;
 		NetworkServer.SendToAll(CustomMsgType.Flag, msg);
-	}
-
-	// Client
-	public void OnFlagPickup(NetworkMessage _networkMessage)
-	{
-		Debug.Log("On Flag Pickup Client");
-		FlagInteractionMessage msg = _networkMessage.ReadMessage<FlagInteractionMessage>();
-
-		Flag clientFlag = NetworkHelper.GetObjectByNetIdValue<Flag>((uint)msg.flagId, false);
-		clientFlag.OnFlagInteraction(msg.isHeld);
-
-		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.playerId, false);
-		tempPlayer.SetHasFlag(msg.isHeld);
 	}
 
 	#endregion

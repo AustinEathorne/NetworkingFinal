@@ -13,7 +13,11 @@ public class Flag : NetworkBehaviour
 	}
 
 	[SerializeField]
+	private float launchSpeed;
+	[SerializeField]
 	private Rigidbody rb;
+	[SerializeField]
+	private Collider collider;
 	[SerializeField]
 	private ParticleSystem particleSystem;
 
@@ -85,15 +89,16 @@ public class Flag : NetworkBehaviour
 		this.transform.parent = null;
 
 		// shoot flag up into the air
-		Vector3 vel = Vector3.up * 20.0f;
+		Vector3 vel = Vector3.up * this.launchSpeed;
 		this.rb.velocity = vel;
 
 		yield return new WaitForSeconds(1.5f);
+		this.collider.enabled = true;
 		this.isHeld = false;
 	}
 
 	// Server
-	private void OnCollisionEnter(Collision _col)
+	private void OnTriggerEnter(Collider _col)
 	{
 		if(!isServer)
 		{
@@ -108,8 +113,9 @@ public class Flag : NetworkBehaviour
 		if(_col.transform.tag == "Player")
 		{
 			this.isHeld = true;
+			this.collider.enabled = false;
 			this.transform.parent = _col.transform;
-			this.gameManager.OnFlagPickup((int)_col.transform.GetComponent<NetworkIdentity>().netId.Value);
+			this.gameManager.OnFlagInteraction(true, (int)_col.transform.GetComponent<NetworkIdentity>().netId.Value);
 		}
 	}
 

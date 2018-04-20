@@ -17,14 +17,6 @@ public class PlayerCamera : MonoBehaviour {
 	[Header("Properties")]
 	[SerializeField]
 	private float distance;
-	[SerializeField]
-	private float speedX;
-	[SerializeField]
-	private float speedY;
-	[SerializeField]
-	private float xOffset;
-	[SerializeField]
-	private float zOffset;
 
 	private void Awake()
 	{
@@ -39,9 +31,9 @@ public class PlayerCamera : MonoBehaviour {
 	private void UpdateCameraMovement()
 	{
 		this.cameraTransform.position = new Vector3(
-			this.transform.position.x + xOffset,
+			this.transform.position.x,
 			this.cameraTransform.position.y,
-			this.transform.position.z + this.zOffset);
+			this.transform.position.z);
 	}
 
 	public void EnableCamera(bool isEnabled)

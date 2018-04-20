@@ -7,6 +7,8 @@ public class PlayerWeapon : MonoBehaviour {
 
 	[Header("Components/Objects")]
 	[SerializeField]
+	private PlayerMovement playerMovement;
+	[SerializeField]
 	private GameObject bullet;
 	[SerializeField]
 	private Transform bulletSpawn;
@@ -29,17 +31,14 @@ public class PlayerWeapon : MonoBehaviour {
 		this.StartCoroutine(this.FireCount());
 	}
 
-	void Update () 
-	{
-		
-	}
-
 	public void Fire()
 	{
 		if(!this.canFire)
 			return;
 
 		this.canFire = false;
+
+		//GameObject clone = Instantiate(this.bullet, this.bulletSpawn.position, this.bulletSpawn.rotation) as GameObject;
 
 		// Send msg to server to spawn object
 		BulletSpawnMessage msg = new BulletSpawnMessage();
@@ -50,16 +49,9 @@ public class PlayerWeapon : MonoBehaviour {
 		NetworkManager.singleton.client.Send(CustomMsgType.BulletSpawn, msg);
 
 		// Mask network request/spawning speed
-		this.ApplyWeaponKickback();
+		this.playerMovement.KickBack();
+		// Particle effect?
 	}
-
-	// mas the terrible delay for a bullet spawn request
-	private void ApplyWeaponKickback()
-	{
-		this.rigidbody.AddForce(-(this.transform.forward) * weaponKickbackForce);
-	}
-
-	// Particle effect?
 
 	public IEnumerator FireCount()
 	{

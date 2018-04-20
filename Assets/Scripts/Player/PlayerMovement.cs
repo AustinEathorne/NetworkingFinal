@@ -17,12 +17,19 @@ public class PlayerMovement : NetworkBehaviour
 	[SerializeField]
 	private float linearSpeed;
 	[SerializeField]
+	private float jumpSpeed;
+	[SerializeField]
+	private float kickbackSpeed;
+	[SerializeField]
 	private float networkSendRate;
 	private float networkSendCount = 0.0f;
 	private float timeBetweenMovementStart = 0.0f;
 	private float timeBetweenMovementEnd = 0.0f;
 	private int floorMask;
 	public bool isInputEnabled = false;
+	private bool isJumping = false;
+	private bool isInAir = false;
+	private bool isKickingBack = false;
 
 	[Header("Replication Properties")]
 	private bool isLerpingPosition = false;
@@ -65,30 +72,39 @@ public class PlayerMovement : NetworkBehaviour
 		}
 	}
 
-	// replication
-	private void FixedUpdate()
-	{
-		if(isLocalPlayer)
-		{
-			return;
-		}
-
-		this.NetworkMovementLerp();
-	}
-
 	// local
 	private void UpdatePlayerMovement()
 	{
+		// linear
 		float x = Input.GetAxis("Horizontal");
 		float z = Input.GetAxis("Vertical");
 
-		Vector3 linearVel = new Vector3(x * this.linearSpeed, 0.0f, z * this.linearSpeed);
+		// jump
+		float y = this.rigidbody.velocity.y;
+		if(this.isJumping && !this.isInAir)
+		{
+			this.isInAir = true;
+			this.isJumping = false;
+			y = this.jumpSpeed;
+		}
+		else
+		{
+			this.isJumping = false;
+		}
 
-//		Vector3 linearVel = this.transform.forward * (Input.GetAxis("Vertical") * this.linearSpeed);
-//		Vector3 angularVel = this.transform.up * (Input.GetAxis("Horizontal") * this.angularSpeed);
+		Vector3 totalVel = new Vector3(x * this.linearSpeed, y, z * this.linearSpeed);
 
-		this.rigidbody.velocity = linearVel;
+		// weapon kickback
+		if(this.isKickingBack)
+		{
+			this.isKickingBack = false;
+			Vector3 kickVel = -this.transform.forward * this.kickbackSpeed;
+			totalVel += kickVel;
+		}
+
+		this.rigidbody.velocity = totalVel;
 		this.rigidbody.angularVelocity = Vector3.zero;
+
 
 		if(this.canSendMessage)
 		{
@@ -122,6 +138,18 @@ public class PlayerMovement : NetworkBehaviour
 	}
 
 	// local
+	public void Jump()
+	{
+		this.isJumping = true;
+	}
+
+	// local
+	public void KickBack()
+	{
+		this.isKickingBack = true;
+	}
+
+	// local
 	private IEnumerator MovementMessageRoutine()
 	{
 		this.timeBetweenMovementStart = Time.time;
@@ -133,9 +161,28 @@ public class PlayerMovement : NetworkBehaviour
 	private void SendMovementMessage()
 	{
 		this.timeBetweenMovementEnd = Time.time;
+
 		this.playerManager.SendMovementMessage((int)this.netId.Value, this.transform.position, this.transform.rotation, 
 			(this.timeBetweenMovementEnd - this.timeBetweenMovementStart));
+		
 		this.canSendMessage = true;
+	}
+
+	// local
+	public void SetIsInAir(bool _isInAir)
+	{
+		this.isInAir = _isInAir;
+	}
+
+	// replication
+	private void FixedUpdate()
+	{
+		if(isLocalPlayer)
+		{
+			return;
+		}
+
+		this.NetworkMovementLerp();
 	}
 
 	// replication

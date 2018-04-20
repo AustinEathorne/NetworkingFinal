@@ -4,7 +4,8 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 
-// CTRL + SHIFT + A = your best friend
+// CTRL + SHIFT + A/ = your best friend
+// CTRL + M + O? in vs
 
 #region Network/Game Manager
 
@@ -752,16 +753,18 @@ public class GameManager : NetworkManager
 
 					// Reset our player's health
 					this.playerHealthList[i] = this.baseHealth;
+
+					// TODO: send health update in spawn msg?
+					// Send health update msg
+					HealthMessage healthMsg = new HealthMessage();
+					healthMsg.isPlaying = this.isPlayerReadyList.ToArray();
+					healthMsg.playerHealth = this.playerHealthList.ToArray();
+					NetworkServer.SendToAll(CustomMsgType.Health, healthMsg);
+					break;
 				}
 			}
 			yield return null;
 		}
-
-//		// Keep running the death check while the game is being played
-//		if(this.isPlayingGame)
-//		{
-//			this.StartCoroutine(this.CheckDeathRoutine());
-//		}
 
 		yield return null;
 	}

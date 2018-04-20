@@ -35,7 +35,15 @@ public class PlayerController : MonoBehaviour
 	{
 		if(Input.GetKey(this.fireKey))
 		{
-			this.playerWeapon.Fire();
+			if(this.playerManager.GetHasFlag())
+			{
+				this.playerManager.DropFlag();	
+				Debug.Log("Input frop flag");
+			}
+			else
+			{
+				this.playerWeapon.Fire();
+			}
 		}
 
 		if(Input.GetKey(this.jumpKey))

@@ -24,12 +24,19 @@ public class PlayerManager : NetworkBehaviour
 	[Header("Player Values")]
 	[SerializeField]
 	private int health = 100;
-	public string name;
-	public Color colour;
+	[SerializeField]
+	private string name;
+	[SerializeField]
+	private Color colour;
+	[SerializeField]
+	private bool hasFlag = false;
 
 	private Vector3 nextSpawnPosition = new Vector3(0.0f, 0.0f, 0.0f);
 
 	private bool isInputEnabled = false;
+
+	private int netIdValue;
+
 
 	// Set object colour, etc
 	public void Initialize(string _name, Color _colour, Vector3 _spawnPosition, GameManager _gameManager, GameObject _gameCanvas)
@@ -123,9 +130,32 @@ public class PlayerManager : NetworkBehaviour
 			this.playerController.SetIsEnabled(true);
 		}
 
-
-
 		yield return null;
 	}
 
+	// Local
+	public void DropFlag()
+	{
+		if(this.hasFlag)
+		{
+			Debug.Log("Drop Flag");
+			this.hasFlag = false;
+
+			// send msg to server
+			FlagDropMessage msg = new FlagDropMessage();
+			msg.playerId = (int)this.netId.Value;
+			NetworkManager.singleton.client.Send(CustomMsgType.DropFlag, msg);
+		}
+	}
+
+	public void SetHasFlag(bool _value)
+	{
+		Debug.Log("Set has flag: " + _value.ToString());
+		this.hasFlag = _value;
+	}
+
+	public bool GetHasFlag()
+	{
+		return this.hasFlag;
+	}
 }

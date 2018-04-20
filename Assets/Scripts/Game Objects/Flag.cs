@@ -13,6 +13,11 @@ public class Flag : NetworkBehaviour
 	}
 
 	[SerializeField]
+	private Rigidbody rb;
+	[SerializeField]
+	private ParticleSystem particleSystem;
+
+	[SerializeField]
 	NetworkIdentity networkIdentity;
 	[SerializeField]
 	private float networkSendRate = 5;
@@ -30,11 +35,16 @@ public class Flag : NetworkBehaviour
 	private float timeStartedLerping;
 	private float timeToLerp;
 
+	public GameManager gameManager;
+
+
+
 	void Start () 
 	{
 		if(!this.isClient)
 		{
 			this.StartCoroutine(this.MovementMessageRoutine());
+			this.rb = this.GetComponent<Rigidbody>();
 		}
 		else
 		{
@@ -70,10 +80,16 @@ public class Flag : NetworkBehaviour
 	}
 		
 	// Server
-	public void DropFlag()
+	public IEnumerator DropFlag()
 	{
-		// shoot flag up into the air
 		this.transform.parent = null;
+
+		// shoot flag up into the air
+		Vector3 vel = Vector3.up * 20.0f;
+		this.rb.velocity = vel;
+
+		yield return new WaitForSeconds(1.5f);
+		this.isHeld = false;
 	}
 
 	// Server
@@ -93,10 +109,11 @@ public class Flag : NetworkBehaviour
 		{
 			this.isHeld = true;
 			this.transform.parent = _col.transform;
+			this.gameManager.OnFlagPickup((int)_col.transform.GetComponent<NetworkIdentity>().netId.Value);
 		}
 	}
 
-	// replication - client
+	// Replication - client
 	private void FixedUpdate()
 	{
 		if(!this.isClient)
@@ -107,7 +124,7 @@ public class Flag : NetworkBehaviour
 		this.NetworkMovementLerp();
 	}
 
-	// replication - client
+	// Replication - client
 	public void OnMovementReceived(Vector3 _position, Quaternion _rotation, float _time)
 	{
 		if(!this.isClient)
@@ -134,7 +151,7 @@ public class Flag : NetworkBehaviour
 		this.timeStartedLerping = Time.time;
 	}
 
-	// replication - client
+	// Replication - client
 	private void NetworkMovementLerp()
 	{
 		//Debug.Log("Movement Lerp");
@@ -159,6 +176,19 @@ public class Flag : NetworkBehaviour
 			{
 				this.isLerpingRotation = false;
 			}
+		}
+	}
+
+	// Replication - client
+	public void OnFlagInteraction(bool _isHeld)
+	{
+		if(_isHeld)
+		{
+			this.particleSystem.Stop();
+		}
+		else
+		{
+			this.particleSystem.Play();
 		}
 	}
 }

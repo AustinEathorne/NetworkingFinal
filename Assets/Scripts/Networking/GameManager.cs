@@ -65,6 +65,8 @@ public class GameManager : NetworkManager
 	private Transform flagSpawn; // Server
 	[SerializeField]
 	private GameObject bullet;
+	private Flag gameFlag;
+	private int flagId; // Server
 
 	[Header("Player")]
 	[SerializeField]
@@ -141,6 +143,7 @@ public class GameManager : NetworkManager
 		NetworkServer.RegisterHandler(CustomMsgType.ReadyUp, this.OnReadyUpMessage);
 		NetworkServer.RegisterHandler(CustomMsgType.Move, this.OnMovement);
 		NetworkServer.RegisterHandler(CustomMsgType.BulletSpawn, this.OnBulletSpawn);
+		NetworkServer.RegisterHandler(CustomMsgType.DropFlag, this.OnFlagDrop);
 		yield return null;
 	}
 
@@ -153,6 +156,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.GameUISetup, this.OnGameUISetupMessage);
 		this.client.RegisterHandler(CustomMsgType.Health, this.OnHealthMessage);
 		this.client.RegisterHandler(CustomMsgType.Death, this.OnDeathMessage);
+		this.client.RegisterHandler(CustomMsgType.Flag, this.OnFlagPickup);
 		yield return null;
 	}
 
@@ -500,7 +504,11 @@ public class GameManager : NetworkManager
 	private void SpawnFlag()
 	{
 		GameObject clone = Instantiate(this.spawnPrefabs[2], this.flagSpawn.position, this.flagSpawn.rotation) as GameObject;
+		this.gameFlag = clone.GetComponent<Flag>();
+		this.gameFlag.gameManager = this;
 		NetworkServer.Spawn(clone);
+
+		this.flagId = (int)clone.GetComponent<NetworkIdentity>().netId.Value;
 	}
 
 	#endregion
@@ -813,6 +821,49 @@ public class GameManager : NetworkManager
 		yield return null;
 	}
 
+	// Server
+	public void OnFlagPickup(int _playerId)
+	{
+		Debug.Log("On Flag Pickup");
+		// Update score count
+
+		// Send msg to clients
+		FlagInteractionMessage msg = new FlagInteractionMessage();
+		msg.playerId = _playerId;
+		msg.flagId = this.flagId;
+		msg.isHeld = true;
+		NetworkServer.SendToAll(CustomMsgType.Flag, msg);
+	}
+
+	// Server
+	public void OnFlagDrop(NetworkMessage _networkMessage)
+	{
+		Debug.Log("On Flag Drop");
+		// update our flag
+		this.gameFlag.StartCoroutine(this.gameFlag.DropFlag());
+
+		// update client flags
+		FlagDropMessage netMsg = _networkMessage.ReadMessage<FlagDropMessage>();
+		FlagInteractionMessage msg = new FlagInteractionMessage();
+		msg.playerId = netMsg.playerId;
+		msg.flagId = this.flagId;
+		msg.isHeld = false;
+		NetworkServer.SendToAll(CustomMsgType.Flag, msg);
+	}
+
+	// Client
+	public void OnFlagPickup(NetworkMessage _networkMessage)
+	{
+		Debug.Log("On Flag Pickup Client");
+		FlagInteractionMessage msg = _networkMessage.ReadMessage<FlagInteractionMessage>();
+
+		Flag clientFlag = NetworkHelper.GetObjectByNetIdValue<Flag>((uint)msg.flagId, false);
+		clientFlag.OnFlagInteraction(msg.isHeld);
+
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.playerId, false);
+		tempPlayer.SetHasFlag(msg.isHeld);
+	}
+
 	#endregion
 }
 
@@ -832,6 +883,8 @@ public class CustomMsgType
 	public static short GameUISetup = MsgType.Highest + 8;
 	public static short Health = MsgType.Highest + 9;
 	public static short Death = MsgType.Highest + 10;
+	public static short Flag = MsgType.Highest + 11;
+	public static short DropFlag = MsgType.Highest + 12;
 }
 
 // Client to Server
@@ -916,6 +969,20 @@ public class DeathMessage : MessageBase
 {
 	public int objectId;
 	public Vector3 nextSpawnPosition;
+}
+
+// Server to Client
+public class FlagInteractionMessage : MessageBase
+{
+	public int playerId;
+	public int flagId;
+	public bool isHeld;
+}
+
+// Client to Server
+public class FlagDropMessage : MessageBase
+{
+	public int playerId;
 }
 
 #endregion

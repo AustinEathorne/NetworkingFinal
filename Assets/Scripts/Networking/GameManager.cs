@@ -62,6 +62,8 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private List<Transform> spawnTransforms; // Server
 	[SerializeField]
+	private Transform flagSpawn; // Server
+	[SerializeField]
 	private GameObject bullet;
 
 	[Header("Player")]
@@ -427,6 +429,9 @@ public class GameManager : NetworkManager
 		// Turn on level
 		this.levelParent.SetActive(true);
 
+		// Spawn flag
+		this.SpawnFlag();
+
 		this.canvasManager.CloseMenu();
 
 		this.serverCam.SetActive(true);
@@ -482,11 +487,20 @@ public class GameManager : NetworkManager
 	public void OnBulletSpawn(NetworkMessage _networkMessage)
 	{
 		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
+
 		GameObject clone = Instantiate(this.bullet, msg.position, msg.rotation) as GameObject;
+		clone.GetComponent<Bullet>().ownerId = msg.objectId;
+
 		NetworkServer.Spawn(clone);
-		//clone.transform.position = msg.position;
-		//clone.transform.rotation = msg.rotation;
+
 		clone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
+	}
+
+	// Server
+	private void SpawnFlag()
+	{
+		GameObject clone = Instantiate(this.spawnPrefabs[2], this.flagSpawn.position, this.flagSpawn.rotation) as GameObject;
+		NetworkServer.Spawn(clone);
 	}
 
 	#endregion
@@ -691,9 +705,11 @@ public class GameManager : NetworkManager
 			if(temp)
 				temp.OnMovementReceived(msg.position, msg.rotation, msg.time);
 		}
-		else
+		else if (msg.objectType == 2)
 		{
-			
+			Flag temp = NetworkHelper.GetObjectByNetIdValue<Flag>((uint)msg.objectId, false);
+			if(temp)
+				temp.OnMovementReceived(msg.position, msg.rotation, msg.time);
 		}
 	}
 
@@ -873,6 +889,7 @@ public class MoveMessage : MessageBase
 // Client to Server
 public class BulletSpawnMessage : MessageBase
 {
+	public int objectId;
 	public Vector3 position;
 	public Quaternion rotation;
 	public float speed;

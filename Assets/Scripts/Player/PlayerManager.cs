@@ -123,6 +123,8 @@ public class PlayerManager : NetworkBehaviour
 			this.playerController.SetIsEnabled(true);
 		}
 
+
+
 		yield return null;
 	}
 

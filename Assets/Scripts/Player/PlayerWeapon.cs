@@ -22,10 +22,11 @@ public class PlayerWeapon : MonoBehaviour {
 	private float bulletSpeed;
 
 	private bool canFire = true;
-
+	private int netId;
 
 	void Start () 
 	{
+		this.netId = (int)this.GetComponent<NetworkIdentity>().netId.Value;
 		this.StartCoroutine(this.FireCount());
 	}
 
@@ -40,6 +41,7 @@ public class PlayerWeapon : MonoBehaviour {
 
 		// Send msg to server to spawn object
 		BulletSpawnMessage msg = new BulletSpawnMessage();
+		msg.objectId = this.netId;
 		msg.position = this.bulletSpawn.position;
 		msg.rotation = this.bulletSpawn.rotation;
 		msg.speed = this.bulletSpeed;

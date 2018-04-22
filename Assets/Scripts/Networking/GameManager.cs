@@ -664,7 +664,7 @@ public class GameManager : NetworkManager
 			tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this, this.gameCanvas);
 		}
 
-		// Send msg to update player UI
+		// Update player game UI
 		GameUISetupMessage sendMsg = new GameUISetupMessage();
 
 		List<string> tempNames = new List<string>();
@@ -682,6 +682,7 @@ public class GameManager : NetworkManager
 
 		NetworkServer.SendToAll(CustomMsgType.GameUISetup, sendMsg);
 
+		// TODO: start game after game countdown/setup
 		this.isPlayingGame = true;
 
 		// Start game routines
@@ -695,6 +696,9 @@ public class GameManager : NetworkManager
 	// Client
 	private void OnPlayerInitialize(NetworkMessage _networkMessage)
 	{
+		// Update canvas
+
+
 		// Read msg
 		InitializePlayerMessage msg = _networkMessage.ReadMessage<InitializePlayerMessage>();
 
@@ -856,7 +860,7 @@ public class GameManager : NetworkManager
 		yield return null;
 	}
 
-	// Server - When a client collides with the flag, or is by a bullet causing them to drop it
+	// Server - When a client collides with the flag, or a bullet causing them to drop it
 	public void OnFlagInteraction(bool _isHeld, int _playerId)
 	{
 		Debug.Log("On Flag Interaction");
@@ -893,7 +897,7 @@ public class GameManager : NetworkManager
 		tempPlayer.SetHasFlag(msg.isHeld);
 	}
 
-	// Server - when the client chooses to drop the flag
+	// Server - when the client chooses to drop the flag (when they shoot a bullet)
 	public void OnFlagDrop(NetworkMessage _networkMessage)
 	{
 		FlagDropMessage netMsg = _networkMessage.ReadMessage<FlagDropMessage>();
@@ -931,7 +935,7 @@ public class GameManager : NetworkManager
 		tempPlayer.OnShotTaken();
 	}
 
-	// Client - 
+	// Client
 	public void OnGameTimeMessage(NetworkMessage _networkMessage)
 	{
 		// Read msg

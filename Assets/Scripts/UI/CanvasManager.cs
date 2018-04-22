@@ -12,6 +12,10 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private GameManager gameManager;
 
+	[Header("Utility")]
+	[SerializeField]
+	private UIUtility uiUtility;
+
 	[Header("Parent Panels")]
 	[SerializeField]
 	private GameObject serverPanel;
@@ -87,6 +91,13 @@ public class CanvasManager : MonoBehaviour {
 	private List<Text> player3ScoreTexts;
 	[SerializeField]
 	private List<Text> player4ScoreTexts;
+
+	[SerializeField]
+	private Image introBg;
+	[SerializeField]
+	private Image introOverlay;
+	[SerializeField]
+	private float bgFadeTime;
 
 
 	private void Start()
@@ -261,7 +272,7 @@ public class CanvasManager : MonoBehaviour {
 			this.lobbyTimeText.enabled = true;
 			if(msg.countDownTime > -1)
 			{
-				this.lobbyTimeText.text = msg.countDownTime > 0 ? msg.countDownTime.ToString() : "GOOD LUCK!";
+				this.lobbyTimeText.text = msg.countDownTime > 0 ? msg.countDownTime.ToString() : "WORDDD";
 			}
 			else
 			{
@@ -323,6 +334,10 @@ public class CanvasManager : MonoBehaviour {
 			this.playerGameColourImages[i].color = _colours[i];
 			this.playerTags[i].SetActive(true);
 		}
+
+		// Fade faux menu UI
+		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introBg, false, 0.0f, this.bgFadeTime));
+		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introOverlay, false, 0.0f, this.bgFadeTime));
 	}
 
 	public void OnHealthUpdate(bool[] _isPlaying, int[] _health)
@@ -380,6 +395,7 @@ public class CanvasManager : MonoBehaviour {
 		if(hasReceivedLobbyUpdateMsg)
 		{
 			this.hasReceivedLobbyUpdateMsg = false;
+			this.StopCoroutine(this.TurnOffLobbyUpdateText());
 			this.StartCoroutine(this.TurnOffLobbyUpdateText());
 		}
 	}

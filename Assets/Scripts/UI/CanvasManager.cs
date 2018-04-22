@@ -79,6 +79,14 @@ public class CanvasManager : MonoBehaviour {
 	private List<Image> playerGameColourImages;
 	[SerializeField]
 	private List<Text> playerNameTagText;
+	[SerializeField]
+	private List<Text> player1ScoreTexts;
+	[SerializeField]
+	private List<Text> player2ScoreTexts;
+	[SerializeField]
+	private List<Text> player3ScoreTexts;
+	[SerializeField]
+	private List<Text> player4ScoreTexts;
 
 
 	private void Start()
@@ -332,6 +340,35 @@ public class CanvasManager : MonoBehaviour {
 	{
 		this.gameTimeText[0].text = gameTime.ToString();
 		this.gameTimeText[1].text = gameTime.ToString();
+	}
+
+	public void OnScoreUpdate(int[] _scores)
+	{
+		for(int i = 0; i < _scores.Length; i++)
+		{
+			switch (i)
+			{
+			case 0:
+				this.player1ScoreTexts[0].text = _scores[i].ToString();
+				this.player1ScoreTexts[1].text = _scores[i].ToString();
+				break;
+			case 1:
+				this.player2ScoreTexts[0].text = _scores[i].ToString();
+				this.player2ScoreTexts[1].text = _scores[i].ToString();
+				break;
+			case 2:
+				this.player3ScoreTexts[0].text = _scores[i].ToString();
+				this.player3ScoreTexts[1].text = _scores[i].ToString();
+				break;
+			case 3:
+				this.player4ScoreTexts[0].text = _scores[i].ToString();
+				this.player4ScoreTexts[1].text = _scores[i].ToString();
+				break;
+			default:
+				Debug.Log("Error on score update handling");
+				break;
+			}
+		}
 	}
 
 	#endregion

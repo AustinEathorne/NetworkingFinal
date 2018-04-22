@@ -81,6 +81,8 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private float gameTime = 60.0f; // Server
 	[SerializeField]
+	private float countdownTime = 4.0f; // Server
+	[SerializeField]
 	private float respawnTime = 3.0f; // Server
 	[SerializeField]
 	private float scoreAdditionInterval;
@@ -172,6 +174,8 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.ShotBullet, this.OnShotBulletMessage);
 		this.client.RegisterHandler(CustomMsgType.GameTime, this.OnGameTimeMessage);
 		this.client.RegisterHandler(CustomMsgType.GameScore, this.OnScoreMessage);
+		this.client.RegisterHandler(CustomMsgType.Countdown, this.OnGameCountDown);
+		this.client.RegisterHandler(CustomMsgType.Input, this.OnInputEnabled);
 		yield return null;
 	}
 
@@ -682,13 +686,11 @@ public class GameManager : NetworkManager
 
 		NetworkServer.SendToAll(CustomMsgType.GameUISetup, sendMsg);
 
-		// TODO: start game after game countdown/setup
-		this.isPlayingGame = true;
-
 		// Start game routines
 		this.StartCoroutine(this.CheckDeathRoutine());
 		this.StartCoroutine(this.GameTimerRoutine());
 		this.StartCoroutine(this.ScoreRoutine());
+		this.StartCoroutine(this.GameCountdown());
 
 		yield return null;
 	}
@@ -696,9 +698,6 @@ public class GameManager : NetworkManager
 	// Client
 	private void OnPlayerInitialize(NetworkMessage _networkMessage)
 	{
-		// Update canvas
-
-
 		// Read msg
 		InitializePlayerMessage msg = _networkMessage.ReadMessage<InitializePlayerMessage>();
 
@@ -806,6 +805,7 @@ public class GameManager : NetworkManager
 	// Server
 	private IEnumerator CheckDeathRoutine()
 	{
+		yield return new WaitUntil(() => this.isPlayingGame == true);
 		Debug.Log("Check death routine");
 
 		while(this.isPlayingGame)
@@ -822,7 +822,7 @@ public class GameManager : NetworkManager
 					msg.nextSpawnPosition = this.spawnTransforms[Random.Range(0, this.spawnTransforms.Count)].position;
 					NetworkServer.SendToAll(CustomMsgType.Death, msg);
 
-					this.StartCoroutine(this.RespawnRoutine(i));
+					this.StartCoroutine(this.RespawnPlayer(i));
 					break;
 				}
 			}
@@ -844,7 +844,7 @@ public class GameManager : NetworkManager
 	}
 
 	// Server
-	private IEnumerator RespawnRoutine(int _index)
+	private IEnumerator RespawnPlayer(int _index)
 	{
 		yield return new WaitForSeconds(this.respawnTime);
 
@@ -947,10 +947,12 @@ public class GameManager : NetworkManager
 
 	// Server
 	private IEnumerator GameTimerRoutine()
-	{
+	{		
 		// Set initial values
 		this.currentGameTime = this.gameTime;
 		this.lastSentGameTime = (int)this.gameTime;
+
+		yield return new WaitUntil(() => this.isPlayingGame == true);
 
 		// Main loop
 		while(this.isPlayingGame)
@@ -983,6 +985,8 @@ public class GameManager : NetworkManager
 	// Server
 	private IEnumerator ScoreRoutine()
 	{
+		yield return new WaitUntil(() => this.isPlayingGame == true);
+
 		while(this.isPlayingGame)
 		{
 			// Traverse players
@@ -1017,6 +1021,61 @@ public class GameManager : NetworkManager
 		this.canvasManager.OnScoreUpdate(msg.scores);
 	}
 
+	// Server
+	private IEnumerator GameCountdown()
+	{
+		int lastTimeSent = (int)this.countdownTime;
+
+		// Countdown
+		while(this.countdownTime >= 0.0f)
+		{
+			this.countdownTime -= Time.deltaTime;
+
+			if((int)this.countdownTime < lastTimeSent)
+			{
+				lastTimeSent = (int)this.countdownTime;
+
+				CountdownMessage msg = new CountdownMessage();
+				msg.countdownString = lastTimeSent <= 0 ? "GO!" : lastTimeSent.ToString();
+				NetworkServer.SendToAll(CustomMsgType.Countdown, msg);
+
+				if(msg.countdownString == "GO!")
+				{
+					EnableInputMessage inputMsg = new EnableInputMessage();
+
+					for(int i = 0; i < this.numPlayers; i++)
+					{
+						inputMsg.playerId = (int)this.playerInfoList[i].playerObjectId;
+						inputMsg.isEnabled = true;
+
+						NetworkServer.SendToAll(CustomMsgType.Input, inputMsg);
+					}
+				}
+			}
+
+			yield return null;
+		}
+
+		// Start game
+		this.isPlayingGame = true;
+	}
+
+	// Client
+	private void OnGameCountDown(NetworkMessage _networkMessage)
+	{
+		CountdownMessage msg = _networkMessage.ReadMessage<CountdownMessage>();
+		this.canvasManager.OnGameCountdown(msg.countdownString);
+	}
+
+	// Client
+	private void OnInputEnabled(NetworkMessage _networkMessage)
+	{
+		EnableInputMessage msg = _networkMessage.ReadMessage<EnableInputMessage>();
+
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.playerId, false);
+		tempPlayer.EnableInput(msg.isEnabled);
+	}
+
 	#endregion
 }
 
@@ -1041,6 +1100,8 @@ public class CustomMsgType
 	public static short ShotBullet = MsgType.Highest + 13;
 	public static short GameTime = MsgType.Highest + 14;
 	public static short GameScore = MsgType.Highest + 15;
+	public static short Countdown = MsgType.Highest + 16;
+	public static short Input = MsgType.Highest + 17;
 }
 
 // Client to Server
@@ -1157,6 +1218,19 @@ public class GameTimeMessage : MessageBase
 public class GameScoresMessage : MessageBase
 {
 	public int[] scores;
+}
+
+// Server to Client
+public class CountdownMessage : MessageBase
+{
+	public string countdownString;
+}
+
+// Server to Client
+public class EnableInputMessage : MessageBase
+{
+	public int playerId;
+	public bool isEnabled;
 }
 
 #endregion

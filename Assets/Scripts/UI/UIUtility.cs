@@ -103,7 +103,6 @@ public class UIUtility : MonoBehaviour
 
 	#endregion
 
-	/*
 	#region Text
 
 	// Fade singular text component's alpha to target alpha - based off fade time
@@ -275,8 +274,6 @@ public class UIUtility : MonoBehaviour
 	}
 
 	#endregion
-
-*/
 
 	#region Images
 

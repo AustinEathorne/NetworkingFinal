@@ -52,18 +52,11 @@ public class PlayerManager : NetworkBehaviour
 		this.transform.position = _spawnPosition;
 		this.gameManager = _gameManager;
 		this.gameCanvas = _gameCanvas;
-		//Debug.Log("Player initialized");
 
-		//this.bulletParticle.transform.parent = null;
 		this.bulletParticle.Play();
 
 		if(this.isLocalPlayer)
 		{
-			// enable input
-			this.isInputEnabled = true;
-			this.playerController.SetIsEnabled(true);
-			//Debug.Log("Player input enabled");
-
 			// enable camera
 			this.playerCamera.EnableCamera(true);
 
@@ -73,6 +66,17 @@ public class PlayerManager : NetworkBehaviour
 			this.gameCanvas.SetActive(true);
 
 			Debug.Log("Initialized local player");
+		}
+	}
+
+	public void EnableInput(bool _value)
+	{
+		if(this.isLocalPlayer)
+		{
+			this.isInputEnabled = _value;
+			this.playerController.SetIsEnabled(_value);
+
+			//Debug.Log("Input Enabled: " + _value.ToString());
 		}
 	}
 

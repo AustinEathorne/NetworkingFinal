@@ -99,6 +99,9 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private float bgFadeTime;
 
+	[SerializeField]
+	private List<Text> countdownText;
+
 
 	private void Start()
 	{
@@ -338,6 +341,17 @@ public class CanvasManager : MonoBehaviour {
 		// Fade faux menu UI
 		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introBg, false, 0.0f, this.bgFadeTime));
 		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introOverlay, false, 0.0f, this.bgFadeTime));
+	}
+
+	public void OnGameCountdown(string _countdownString)
+	{
+		this.countdownText[0].text = _countdownString;
+		this.countdownText[1].text = _countdownString;
+
+		if(_countdownString == "GO!")
+		{
+			this.uiUtility.StartCoroutine(this.uiUtility.FadeList(this.countdownText, false, this.bgFadeTime * 0.25f, 0.0f, true));
+		}
 	}
 
 	public void OnHealthUpdate(bool[] _isPlaying, int[] _health)

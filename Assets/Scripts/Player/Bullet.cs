@@ -150,7 +150,7 @@ public class Bullet : NetworkBehaviour
 			return;
 		}
 
-		Debug.Log("Bullet Collision");
+		//Debug.Log("Bullet Collision");
 
 		if(_collision.gameObject.tag == "Player")
 		{

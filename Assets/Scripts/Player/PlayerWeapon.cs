@@ -11,7 +11,7 @@ public class PlayerWeapon : MonoBehaviour {
 	[SerializeField]
 	private GameObject bullet;
 	[SerializeField]
-	private Transform bulletSpawn;
+	public Transform bulletSpawn;
 	[SerializeField]
 	private Rigidbody rigidbody;
 
@@ -19,7 +19,7 @@ public class PlayerWeapon : MonoBehaviour {
 	[SerializeField]
 	private float fireDelay;
 	[SerializeField]
-	private float bulletSpeed;
+	public float bulletSpeed;
 
 	private bool canFire = true;
 	private int netId;
@@ -49,8 +49,7 @@ public class PlayerWeapon : MonoBehaviour {
 		NetworkManager.singleton.client.Send(CustomMsgType.BulletSpawn, msg);
 
 		// Mask network request/spawning speed
-		this.playerMovement.KickBack();
-		// Particle effect?
+		//this.playerMovement.KickBack();
 	}
 
 	public IEnumerator FireCount()

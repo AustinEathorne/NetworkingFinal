@@ -158,6 +158,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.Health, this.OnHealthMessage);
 		this.client.RegisterHandler(CustomMsgType.Death, this.OnDeathMessage);
 		this.client.RegisterHandler(CustomMsgType.Flag, this.OnFlagInteraction);
+		this.client.RegisterHandler(CustomMsgType.ShotBullet, this.OnShotBullet);
 		yield return null;
 	}
 
@@ -492,14 +493,22 @@ public class GameManager : NetworkManager
 
 	public void OnBulletSpawn(NetworkMessage _networkMessage)
 	{
+		// Read msg
 		BulletSpawnMessage msg = _networkMessage.ReadMessage<BulletSpawnMessage>();
 
+		// Create Bullet
 		GameObject clone = Instantiate(this.bullet, msg.position, msg.rotation) as GameObject;
 		clone.GetComponent<Bullet>().ownerId = msg.objectId;
+		//NetworkServer.Spawn(clone);
 
-		NetworkServer.Spawn(clone);
-
+		// Set velocity
 		clone.GetComponent<Rigidbody>().velocity = clone.transform.forward * msg.speed;
+
+		// Tell client player's to play a particle effect
+		ShotBulletMessage newMsg = new ShotBulletMessage();
+		newMsg.playerId = msg.objectId;
+		NetworkServer.SendToAll(CustomMsgType.ShotBullet, newMsg);
+
 	}
 
 	// Server
@@ -887,6 +896,15 @@ public class GameManager : NetworkManager
 		NetworkServer.SendToAll(CustomMsgType.Flag, msg);
 	}
 
+	// Client - tell client replications to play a gunshot particle effect
+	public void OnShotBullet(NetworkMessage _networkMessage)
+	{
+		ShotBulletMessage msg = _networkMessage.ReadMessage<ShotBulletMessage>();
+
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.playerId, false);
+		tempPlayer.OnShotTaken();
+	}
+
 	#endregion
 }
 
@@ -908,6 +926,7 @@ public class CustomMsgType
 	public static short Death = MsgType.Highest + 10;
 	public static short Flag = MsgType.Highest + 11;
 	public static short DropFlag = MsgType.Highest + 12;
+	public static short ShotBullet = MsgType.Highest + 13;
 }
 
 // Client to Server
@@ -1004,6 +1023,12 @@ public class FlagInteractionMessage : MessageBase
 
 // Client to Server
 public class FlagDropMessage : MessageBase
+{
+	public int playerId;
+}
+
+// Server to Client
+public class ShotBulletMessage : MessageBase
 {
 	public int playerId;
 }

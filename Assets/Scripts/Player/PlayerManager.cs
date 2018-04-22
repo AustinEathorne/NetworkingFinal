@@ -11,6 +11,8 @@ public class PlayerManager : NetworkBehaviour
 	[SerializeField]
 	private PlayerMovement playerMovement;
 	[SerializeField]
+	private PlayerWeapon playerWeapon;
+	[SerializeField]
 	private PlayerCamera playerCamera;
 	[SerializeField]
 	private GameManager gameManager; // not used
@@ -20,6 +22,10 @@ public class PlayerManager : NetworkBehaviour
 	[Header("Particles")]
 	[SerializeField]
 	private ParticleSystem deathParticle;
+	[SerializeField]
+	private ParticleSystem gunShotParticle;
+	[SerializeField]
+	private ParticleSystem bulletParticle;
 
 	[Header("Player Values")]
 	[SerializeField]
@@ -47,6 +53,9 @@ public class PlayerManager : NetworkBehaviour
 		this.gameManager = _gameManager;
 		this.gameCanvas = _gameCanvas;
 		//Debug.Log("Player initialized");
+
+		//this.bulletParticle.transform.parent = null;
+		this.bulletParticle.Play();
 
 		if(this.isLocalPlayer)
 		{
@@ -93,7 +102,16 @@ public class PlayerManager : NetworkBehaviour
 	public void OnShotTaken()
 	{
 		// Player Shot Taken particle
-		//GameObject particle = Instantiate(this.deathParticle, this.transform.position, this.transform.rotation) as GameObject;
+		this.gunShotParticle.Play();
+
+		// Emit bullet particle
+		this.bulletParticle.Emit(1);
+
+		// Add vel to the last particle in our forward direction
+		ParticleSystem.Particle[] particles = new ParticleSystem.Particle[this.bulletParticle.particleCount];
+		int count = this.bulletParticle.GetParticles(particles);
+		particles[count - 1].velocity = this.transform.forward * this.playerWeapon.bulletSpeed;
+		this.bulletParticle.SetParticles(particles, count);
 	}
 
 	// Local/Replication

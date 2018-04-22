@@ -77,9 +77,14 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private List<int> playerHealthList;
 
-	[Header("Respawn")]
+	[Header("Time")]
+	[SerializeField]
+	private float gameTime = 60.0f;
 	[SerializeField]
 	private float respawnTime = 3.0f;
+
+	private float currentGameTime = 0.0f;
+	private int lastSentGameTime = 0;
 
 	#region Setup/Create
 
@@ -159,6 +164,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.Death, this.OnDeathMessage);
 		this.client.RegisterHandler(CustomMsgType.Flag, this.OnFlagInteraction);
 		this.client.RegisterHandler(CustomMsgType.ShotBullet, this.OnShotBullet);
+		this.client.RegisterHandler(CustomMsgType.GameTime, this.OnGameTimeReceived);
 		yield return null;
 	}
 
@@ -672,6 +678,7 @@ public class GameManager : NetworkManager
 		this.isPlayingGame = true;
 
 		this.StartCoroutine(this.CheckDeathRoutine());
+		this.StartCoroutine(this.GameTimer());
 
 		yield return null;
 	}
@@ -905,6 +912,51 @@ public class GameManager : NetworkManager
 		tempPlayer.OnShotTaken();
 	}
 
+	// Client - 
+	public void OnGameTimeReceived(NetworkMessage _networkMessage)
+	{
+		// Read msg
+		GameTimeMessage msg = _networkMessage.ReadMessage<GameTimeMessage>();
+
+		// Update canvas
+		this.canvasManager.OnGameTimeUpdate(msg.gameTime);
+	}
+
+	// Server
+	private IEnumerator GameTimer()
+	{
+		// Set initial values
+		this.currentGameTime = this.gameTime;
+		this.lastSentGameTime = (int)this.gameTime;
+
+		// Main loop
+		while(this.isPlayingGame)
+		{
+			this.currentGameTime -= Time.deltaTime;
+
+			if((int)this.currentGameTime < this.lastSentGameTime)
+			{
+				//Debug.Log("Send time update");
+				this.lastSentGameTime = (int)this.currentGameTime;
+
+				// Send msg
+				GameTimeMessage msg = new GameTimeMessage();
+				msg.gameTime = this.lastSentGameTime;
+				NetworkServer.SendToAll(CustomMsgType.GameTime, msg);
+
+				if(this.currentGameTime <= 0)
+				{
+					this.isPlayingGame = false;
+					Debug.Log("End Game!!");
+				}
+			}
+			
+			yield return null;
+		}
+
+		yield return null;
+	}
+
 	#endregion
 }
 
@@ -927,6 +979,7 @@ public class CustomMsgType
 	public static short Flag = MsgType.Highest + 11;
 	public static short DropFlag = MsgType.Highest + 12;
 	public static short ShotBullet = MsgType.Highest + 13;
+	public static short GameTime = MsgType.Highest + 14;
 }
 
 // Client to Server
@@ -1031,6 +1084,12 @@ public class FlagDropMessage : MessageBase
 public class ShotBulletMessage : MessageBase
 {
 	public int playerId;
+}
+
+// Server to Client
+public class GameTimeMessage : MessageBase
+{
+	public int gameTime;
 }
 
 #endregion

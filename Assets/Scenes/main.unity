@@ -3942,6 +3942,7 @@ MonoBehaviour:
   baseHealth: 100
   baseDamage: 10
   playerHealthList: 64000000640000006400000064000000
+  gameTime: 20
   respawnTime: 3
 --- !u!4 &623986410
 Transform:
@@ -4991,7 +4992,7 @@ GameObject:
   - component: {fileID: 819342298}
   - component: {fileID: 819342302}
   m_Layer: 5
-  m_Name: MenuCanvas
+  m_Name: CanvasManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

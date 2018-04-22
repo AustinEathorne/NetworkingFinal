@@ -328,6 +328,12 @@ public class CanvasManager : MonoBehaviour {
 		}
 	}
 
+	public void OnGameTimeUpdate(int gameTime)
+	{
+		this.gameTimeText[0].text = gameTime.ToString();
+		this.gameTimeText[1].text = gameTime.ToString();
+	}
+
 	#endregion
 
 	#region Update

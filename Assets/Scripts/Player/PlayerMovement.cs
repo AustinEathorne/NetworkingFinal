@@ -17,6 +17,8 @@ public class PlayerMovement : NetworkBehaviour
 	[SerializeField]
 	private float linearSpeed;
 	[SerializeField]
+	private float angularSpeed;
+	[SerializeField]
 	private float jumpSpeed;
 	[SerializeField]
 	private float kickbackSpeed;
@@ -141,7 +143,7 @@ public class PlayerMovement : NetworkBehaviour
 		{
 			if(hit.transform.tag == "Floor")
 			{
-				//Debug.Log("Hit floor");
+				Debug.Log("Hit floor");
 				//Debug.DrawRay(this.transform.position, hit.point, Color.green);
 
 				Vector3 lookDirection = hit.point - this.transform.position;
@@ -149,8 +151,8 @@ public class PlayerMovement : NetworkBehaviour
 
 				Quaternion rot = Quaternion.LookRotation(lookDirection);
 
-				this.rigidbody.MoveRotation(rot);
-				//this.transform.rotation = rot;
+				//this.rigidbody.MoveRotation(rot);
+				this.transform.rotation = Quaternion.Lerp(this.transform.rotation, rot, Time.deltaTime * this.angularSpeed);
 			}
 		}
 	}

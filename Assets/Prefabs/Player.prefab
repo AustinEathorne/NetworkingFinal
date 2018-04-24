@@ -516,10 +516,11 @@ MonoBehaviour:
   playerManager: {fileID: 114439244112167944}
   rigidbody: {fileID: 54663493082415018}
   playerCamera: {fileID: 114971458621387990}
-  linearSpeed: 4
+  linearSpeed: 8
+  angularSpeed: 6
   jumpSpeed: 8
-  kickbackSpeed: 30
-  networkSendRate: 5
+  kickbackSpeed: 0
+  networkSendRate: 6
   isInputEnabled: 0
 --- !u!114 &114262621673804986
 MonoBehaviour:

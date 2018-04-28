@@ -41,7 +41,9 @@ public class Flag : NetworkBehaviour
 
 	public GameManager gameManager;
 
-
+	private float lerpSpeed = 2.5f;
+	private float stopDistance = 1.0f;
+	private Transform holderTransform;
 
 	void Start () 
 	{
@@ -86,7 +88,9 @@ public class Flag : NetworkBehaviour
 	// Server
 	public IEnumerator DropFlag()
 	{
-		this.transform.parent = null;
+		//this.transform.parent = null;
+		this.holderTransform = null;
+		this.rb.isKinematic = false;
 
 		// shoot flag up into the air
 		Vector3 vel = Vector3.up * this.launchSpeed;
@@ -114,8 +118,21 @@ public class Flag : NetworkBehaviour
 		{
 			this.isHeld = true;
 			this.collider.enabled = false;
-			this.transform.parent = _col.transform;
+			//this.transform.parent = _col.transform;
+			this.holderTransform = _col.transform;
+			this.rb.isKinematic = true;
 			this.gameManager.OnFlagInteraction(true, (int)_col.transform.GetComponent<NetworkIdentity>().netId.Value);
+		}
+	}
+
+	private void LerpToHolder()
+	{
+		if(this.isHeld && this.holderTransform)
+		{
+			if(Vector3.Distance(this.transform.position, this.holderTransform.position) > this.stopDistance)
+			{
+				this.transform.position = Vector3.Lerp(this.transform.position, this.holderTransform.position, this.lerpSpeed * Time.deltaTime);
+			}
 		}
 	}
 
@@ -124,6 +141,7 @@ public class Flag : NetworkBehaviour
 	{
 		if(!this.isClient)
 		{
+			this.LerpToHolder();
 			return;
 		}
 

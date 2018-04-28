@@ -252,4 +252,9 @@ public class PlayerMovement : NetworkBehaviour
 			}
 		}
 	}
+
+	public void EnableRb(bool _isEnabled)
+	{
+		this.rigidbody.isKinematic = _isEnabled;
+	}
 }

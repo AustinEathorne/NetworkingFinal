@@ -500,7 +500,6 @@ public class GameManager : NetworkManager
 		GameObject player = Instantiate(this.playerPrefab) as GameObject;
 		NetworkServer.AddPlayerForConnection(_networkConnection, player, _playerControllerId);
 
-		//TODO: find player info that matches network connection inour player info list, then get the net id
 		for(int i = 0; i < this.maxConnections; i++)
 		{
 			if(this.playerInfoList[i].connectionId == _networkConnection.connectionId)

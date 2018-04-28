@@ -53,8 +53,6 @@ public class PlayerManager : NetworkBehaviour
 		this.gameManager = _gameManager;
 		this.gameCanvas = _gameCanvas;
 
-		this.bulletParticle.Play();
-
 		if(this.isLocalPlayer)
 		{
 			// enable camera
@@ -67,6 +65,8 @@ public class PlayerManager : NetworkBehaviour
 
 			Debug.Log("Initialized local player");
 		}
+
+		this.playerMovement.EnableRb(false);
 	}
 
 	public void EnableInput(bool _value)

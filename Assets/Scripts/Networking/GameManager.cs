@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 
-// CTRL + SHIFT + A/ = your best friend
+// CTRL + SHIFT + A = your best friend
 // CTRL + M + O? in vs
 
 #region Network/Game Manager
@@ -96,6 +96,12 @@ public class GameManager : NetworkManager
 
 	#region Setup/Create
 
+	public void SetConnectionInfo(string _address, int _port)
+	{
+		this.netAddressToUse = _address;
+		this.portToUse = _port;
+	}
+
 	private IEnumerator SetupManager()
 	{
 		this.playerInfoList = new List<PlayerInfo>();
@@ -137,7 +143,7 @@ public class GameManager : NetworkManager
 		yield return null;
 	}
 
-	public IEnumerator CreateClient() //"192.168.2.99"
+	public IEnumerator CreateClient()
 	{
 		// Start Client
 		NetworkManager.singleton.networkAddress = this.netAddressToUse;

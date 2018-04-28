@@ -20,6 +20,8 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private GameObject serverPanel;
 	[SerializeField]
+	private GameObject connectionInfoPanel;
+	[SerializeField]
 	private GameObject initialPanel;
 	[SerializeField]
 	public GameObject playerPreviewPanel;
@@ -35,6 +37,16 @@ public class CanvasManager : MonoBehaviour {
 	private GameObject menuBg;
 	[SerializeField]
 	private GameObject coolSpinningThing;
+	[SerializeField]
+	private GameObject startPanel;
+	[SerializeField]
+	private GameObject menuPanel;
+	[SerializeField]
+	private GameObject howToPlayPanel;
+
+	[Header("Connection Info")]
+	[SerializeField]
+	private List<Text> connectionFields;
 
 	[Header("Colour Select")]
 	[SerializeField]
@@ -105,7 +117,8 @@ public class CanvasManager : MonoBehaviour {
 
 	private void Start()
 	{
-		this.initialPanel.SetActive(true);
+		//this.initialPanel.SetActive(true);
+		this.startPanel.SetActive(true);
 	}
 
 	public void DisplayLeaving()
@@ -151,6 +164,62 @@ public class CanvasManager : MonoBehaviour {
 	{
 		this.serverPanel.SetActive(true);
 	}
+
+	#region InitialMenu
+
+	public void OnStart()
+	{
+		this.startPanel.SetActive(false);
+		this.menuPanel.SetActive(true);
+	}
+
+	public void OnPlay()
+	{
+		this.menuPanel.SetActive(false);
+		this.connectionInfoPanel.SetActive(true);
+	}
+
+	public void OnHowToPlay()
+	{
+		this.menuPanel.SetActive(false);
+		this.howToPlayPanel.SetActive(true);
+	}
+
+	public void OnHowToPlayClose()
+	{
+		this.howToPlayPanel.SetActive(false);
+		this.menuPanel.SetActive(true);
+	}
+
+	public void OnQuit()
+	{
+		Application.Quit();
+	}
+
+	public void OnConnInfoSubmit()
+	{
+		if(connectionFields[0].text != "" && connectionFields[1].text != "")
+		{
+			this.connectionInfoPanel.SetActive(false);
+			this.initialPanel.SetActive(true);
+
+			this.gameManager.SetConnectionInfo(connectionFields[0].text.ToString(), int.Parse(connectionFields[1].text));
+		}
+	}
+
+	public void OnConnInfoToMenu()
+	{
+		this.connectionInfoPanel.SetActive(false);
+		this.menuPanel.SetActive(true);
+	}
+
+	public void OnInitPanelToConnInfo()
+	{
+		this.initialPanel.SetActive(false);
+		this.connectionInfoPanel.SetActive(true);
+	}
+
+	#endregion
 
 	#region Server/Client Select
 

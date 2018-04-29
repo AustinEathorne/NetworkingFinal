@@ -41,9 +41,11 @@ public class Flag : NetworkBehaviour
 
 	public GameManager gameManager;
 
-	private float lerpSpeed = 2.5f;
-	private float stopDistance = 1.0f;
+	// Server
+	private float lerpSpeed = 3.0f;
+	private float stopDistance = 1.5f;
 	private Transform holderTransform;
+
 
 	void Start () 
 	{

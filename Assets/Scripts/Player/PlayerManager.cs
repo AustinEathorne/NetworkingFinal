@@ -180,4 +180,12 @@ public class PlayerManager : NetworkBehaviour
 	{
 		return this.hasFlag;
 	}
+
+	// Local
+	public void EndGame()
+	{
+		this.EnableInput(false);
+
+
+	}
 }

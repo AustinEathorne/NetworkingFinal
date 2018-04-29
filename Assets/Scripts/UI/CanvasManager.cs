@@ -114,6 +114,14 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private List<Text> countdownText;
 
+	[Header("End Game")]
+	[SerializeField]
+	private List<Text> playerEndGameNameText;
+	[SerializeField]
+	private GameObject GameContainer;
+	[SerializeField]
+	private GameObject GameOverContainer;
+
 
 	private void Start()
 	{
@@ -410,6 +418,9 @@ public class CanvasManager : MonoBehaviour {
 		// Fade faux menu UI
 		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introBg, false, 0.0f, this.bgFadeTime));
 		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introOverlay, false, 0.0f, this.bgFadeTime));
+
+		this.gameTimeText[0].enabled = true;
+		this.gameTimeText[1].enabled = true;
 	}
 
 	public void OnGameCountdown(string _countdownString)
@@ -467,6 +478,56 @@ public class CanvasManager : MonoBehaviour {
 				break;
 			}
 		}
+	}
+
+	public IEnumerator EndGameRoutine(int _score, string[] _names, Color[] _colours)
+	{
+		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introBg, true, 0.95f, this.bgFadeTime));
+		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introOverlay, true, 0.075f, this.bgFadeTime));
+
+		this.gameTimeText[0].enabled = false;
+		this.gameTimeText[1].enabled = false;
+
+		Vector3 temp = this.gameTimeText[0].transform.parent.transform.position;
+		temp.y = -200;
+		this.gameTimeText[0].transform.parent.transform.position = temp;
+
+		this.GameContainer.SetActive(false);
+
+		yield return new WaitForSeconds(1.5f);
+
+		this.gameTimeText[0].text = _score.ToString();
+		this.gameTimeText[1].text = _score.ToString();
+		this.gameTimeText[0].enabled = true;
+		this.gameTimeText[1].enabled = true;
+
+		string names = "";
+
+		for(int i = 0; i < _names.Length; i++)
+		{
+			if(i > 0)
+			{
+				names += " & ";
+			}
+
+			names += _names[i];
+		}
+
+		this.playerEndGameNameText[0].text = names;
+		this.playerEndGameNameText[1].text = names;
+
+		yield return new WaitForSeconds(0.25f);
+
+
+		// Turn on everything else
+		this.GameOverContainer.SetActive(true);
+
+		yield return null;
+	}
+
+	public void OnLeaveGame()
+	{
+		this.gameManager.LeaveGame();
 	}
 
 	#endregion

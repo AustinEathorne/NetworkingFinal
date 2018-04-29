@@ -182,6 +182,7 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.GameScore, this.OnScoreMessage);
 		this.client.RegisterHandler(CustomMsgType.Countdown, this.OnGameCountDown);
 		this.client.RegisterHandler(CustomMsgType.Input, this.OnInputEnabled);
+		this.client.RegisterHandler(CustomMsgType.EndGame, this.OnGameEnd);
 		yield return null;
 	}
 
@@ -709,6 +710,8 @@ public class GameManager : NetworkManager
 		// Send msg to player object
 		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)msg.objectId, false);
 		tempPlayer.Initialize(msg.name, msg.colour, msg.spawnPosition, this, this.gameCanvas);
+
+		this.clientPlayerInfo.playerObjectId = (uint)msg.objectId;
 	}
 
 	// Server
@@ -977,7 +980,7 @@ public class GameManager : NetworkManager
 				if(this.currentGameTime <= 0)
 				{
 					this.isPlayingGame = false;
-					Debug.Log("End Game!!");
+					this.GameEnding();
 				}
 			}
 			
@@ -1081,6 +1084,63 @@ public class GameManager : NetworkManager
 		tempPlayer.EnableInput(msg.isEnabled);
 	}
 
+	// Server
+	private void GameEnding()
+	{
+		Debug.Log("End Game!!");
+
+		// Find winner(s)
+		int highScore = 0;
+
+		// Find the highscore
+		for(int i = 0; i < this.numPlayers; i++)
+		{
+			if(this.playerScoreList[i] >= highScore)
+			{
+				highScore = this.playerScoreList[i];
+			}
+		}
+
+		// Store winner information
+		List<string> names = new List<string>();
+		List<Color> colours = new List<Color>();
+		for(int i = 0; i < this.numPlayers; i++)
+		{
+			if(this.playerScoreList[i] == highScore)
+			{
+				names.Add(this.playerInfoList[i].name);
+				colours.Add(this.playerInfoList[i].colour);
+			}
+		}
+
+		// Send msg
+		EndGameMessage msg = new EndGameMessage();
+		msg.score = highScore;
+		msg.names = names.ToArray();
+		msg.colours = colours.ToArray();
+		NetworkServer.SendToAll(CustomMsgType.EndGame, msg);
+	}
+
+	public void OnGameEnd(NetworkMessage _networkMessage)
+	{
+		// Tell player object game is over
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>((uint)this.clientPlayerInfo.playerObjectId, false);
+
+		// Read msg
+		EndGameMessage msg = _networkMessage.ReadMessage<EndGameMessage>();
+
+		// Run canvas routine
+		this.canvasManager.StartCoroutine(this.canvasManager.EndGameRoutine(msg.score, msg.names, msg.colours));
+	}
+
+	// Client
+	public void LeaveGame()
+	{
+		NetworkManager.singleton.StopClient();
+
+		SceneManager.LoadScene(0);
+	}
+
 	#endregion
 }
 
@@ -1107,6 +1167,7 @@ public class CustomMsgType
 	public static short GameScore = MsgType.Highest + 15;
 	public static short Countdown = MsgType.Highest + 16;
 	public static short Input = MsgType.Highest + 17;
+	public static short EndGame = MsgType.Highest + 18;
 }
 
 // Client to Server
@@ -1236,6 +1297,14 @@ public class EnableInputMessage : MessageBase
 {
 	public int playerId;
 	public bool isEnabled;
+}
+
+// Server to Client
+public class EndGameMessage : MessageBase
+{
+	public int score;
+	public string[] names;
+	public Color[] colours;
 }
 
 #endregion

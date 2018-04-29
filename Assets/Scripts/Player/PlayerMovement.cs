@@ -15,7 +15,7 @@ public class PlayerMovement : NetworkBehaviour
 
 	[Header("Properties")]
 	[SerializeField]
-	private float linearSpeed;
+	public float linearSpeed;
 	[SerializeField]
 	private float angularSpeed;
 	[SerializeField]

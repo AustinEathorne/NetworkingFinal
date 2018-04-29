@@ -482,24 +482,12 @@ public class CanvasManager : MonoBehaviour {
 
 	public IEnumerator EndGameRoutine(int _score, string[] _names, Color[] _colours)
 	{
-		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introBg, true, 0.95f, this.bgFadeTime));
-		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introOverlay, true, 0.075f, this.bgFadeTime));
-
-		this.gameTimeText[0].enabled = false;
-		this.gameTimeText[1].enabled = false;
-
-		Vector3 temp = this.gameTimeText[0].transform.parent.transform.position;
-		temp.y = -200;
-		this.gameTimeText[0].transform.parent.transform.position = temp;
+		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introBg, true, 0.5f, this.bgFadeTime));
+		this.uiUtility.StartCoroutine(this.uiUtility.Fade(this.introOverlay, true, 0.05f, this.bgFadeTime));
 
 		this.GameContainer.SetActive(false);
 
 		yield return new WaitForSeconds(1.5f);
-
-		this.gameTimeText[0].text = _score.ToString();
-		this.gameTimeText[1].text = _score.ToString();
-		this.gameTimeText[0].enabled = true;
-		this.gameTimeText[1].enabled = true;
 
 		string names = "";
 

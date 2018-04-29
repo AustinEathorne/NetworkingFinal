@@ -63,17 +63,23 @@ public class GameManager : NetworkManager
 	[SerializeField]
 	private List<Transform> spawnTransforms; // Server
 	[SerializeField]
+	private List<Transform> pickupSpawnTransforms; // Server
+	[SerializeField]
 	private Transform flagSpawn; // Server
 	[SerializeField]
 	private GameObject bullet; // Server
 	private Flag gameFlag; // Server
 	private int flagId; // Server
+	[SerializeField]
+	private GameObject pickupPrefab; // Server
 
 	[Header("Player")]
 	[SerializeField]
 	private int baseHealth = 100; // Server
 	[SerializeField]
 	private int baseDamage = 10; // Server
+	[SerializeField]
+	private int damageIncrease = 40; // Server
 	[SerializeField]
 	private List<int> playerHealthList; // Server
 
@@ -86,13 +92,24 @@ public class GameManager : NetworkManager
 	private float respawnTime = 3.0f; // Server
 	[SerializeField]
 	private float scoreAdditionInterval;
+	[SerializeField]
+	private float pickupSpawnInterval = 10.0f; // Server
+	[SerializeField]
+	private float pickupDuration = 5.0f; // Server
 
 	private float currentGameTime = 0.0f; // Server
 	private int lastSentGameTime = 0; // Server
 
-
 	[SerializeField]
 	private List<int> playerScoreList; // Server
+
+	// Server - pickups
+	[SerializeField]
+	private List<bool> hasPickup; // does the location have a pickup
+	private bool isWaitingToSpawnPickup = true;
+
+	private List<int> hasDamagePowerup = new List<int>();
+
 
 	#region Setup/Create
 
@@ -183,6 +200,8 @@ public class GameManager : NetworkManager
 		this.client.RegisterHandler(CustomMsgType.Countdown, this.OnGameCountDown);
 		this.client.RegisterHandler(CustomMsgType.Input, this.OnInputEnabled);
 		this.client.RegisterHandler(CustomMsgType.EndGame, this.OnGameEnd);
+		this.client.RegisterHandler(CustomMsgType.SpawnPickup, this.OnPickUpSpawn);
+		this.client.RegisterHandler(CustomMsgType.Pickup, this.OnPickupInteraction);
 		yield return null;
 	}
 
@@ -697,6 +716,7 @@ public class GameManager : NetworkManager
 		this.StartCoroutine(this.GameTimerRoutine());
 		this.StartCoroutine(this.ScoreRoutine());
 		this.StartCoroutine(this.GameCountdown());
+		this.StartCoroutine(this.PickupSpawnRoutine());
 
 		yield return null;
 	}
@@ -760,9 +780,17 @@ public class GameManager : NetworkManager
 	}
 
 	// Server - bullets are server owned objects
-	public void OnBulletHit(int _objectId)
+	public void OnBulletHit(int _objectId, int _firingPlayer)
 	{
 		Debug.Log("Player object " + _objectId.ToString() + " got hit!");
+
+		int firingPlayerIndex = 0;
+		int damage = this.baseDamage;
+
+		if(this.hasDamagePowerup.Contains(_firingPlayer))
+		{
+			damage += this.damageIncrease;
+		}
 
 		// Find player in our list
 		for(int i = 0; i < this.maxConnections; i++)
@@ -772,7 +800,7 @@ public class GameManager : NetworkManager
 				// Check to make sure the player isn't already dead
 				if(this.playerHealthList[i] > 0)
 				{
-					this.playerHealthList[i] -= this.baseDamage;
+					this.playerHealthList[i] -= damage;
 
 					HealthMessage msg = new HealthMessage();
 					msg.isPlaying = this.isPlayerReadyList.ToArray();
@@ -1141,6 +1169,170 @@ public class GameManager : NetworkManager
 		SceneManager.LoadScene(0);
 	}
 
+	// Server
+	private IEnumerator PickupSpawnRoutine()
+	{
+		yield return new WaitUntil(() => this.isPlayingGame == true);
+
+		float count = 0.0f;
+
+		while(this.isPlayingGame)
+		{
+			if(this.isWaitingToSpawnPickup == false)
+			{
+				count += Time.deltaTime;
+
+				if(count >= this.pickupSpawnInterval)
+				{
+					count = 0.0f;
+					this.isWaitingToSpawnPickup = true;
+				}
+			}
+			else
+			{
+				int ranSpawn = Random.Range(0, this.pickupSpawnTransforms.Count);
+
+				while(this.hasPickup[ranSpawn])
+				{
+					ranSpawn = Random.Range(0, this.pickupSpawnTransforms.Count);
+					yield return null;
+				}
+
+				this.hasPickup[ranSpawn] = true;
+
+				yield return new WaitForSeconds(3.0f);
+
+				GameObject clone = Instantiate(
+					pickupPrefab,
+					this.pickupSpawnTransforms[ranSpawn].position,
+					this.pickupSpawnTransforms[ranSpawn].rotation);
+
+				int ranType = Random.Range(0, 2);
+				Pickup.PickupType pType = ranType == 0 ? Pickup.PickupType.Damage : Pickup.PickupType.Speed;
+
+				clone.GetComponent<Pickup>().Initialize(this, pType, ranSpawn);
+
+				NetworkServer.Spawn(clone);
+
+				// Send msg to client pickups
+				SpawnPickupMessage msg = new SpawnPickupMessage();
+				msg.pickupId = clone.GetComponent<NetworkIdentity>().netId.Value;
+				msg.type = ranType;
+
+				NetworkServer.SendToAll(CustomMsgType.SpawnPickup, msg);
+
+				this.isWaitingToSpawnPickup = false;
+			}
+
+			yield return null;
+		}
+
+		yield return null;
+	}
+
+	// Client
+	public void OnPickUpSpawn(NetworkMessage _networkMessage)
+	{
+		SpawnPickupMessage msg = _networkMessage.ReadMessage<SpawnPickupMessage>();
+
+		Pickup tempPickup = NetworkHelper.GetObjectByNetIdValue<Pickup>((uint)msg.pickupId, false);
+
+		tempPickup.GetComponent<Pickup>().InitializeClient(msg.type);
+	}
+
+	// Server
+	public void OnPickupInteraction(uint _playerId, Pickup.PickupType _pType, int _spawnIndex)
+	{
+		Debug.Log("Player " + _playerId.ToString() + " has interacted with a pickup!");
+		this.hasPickup[_spawnIndex] = false;
+
+		// Find player
+		int index = 0;
+		for(int i = 0; i < this.playerInfoList.Count; i++)
+		{
+			if(this.playerInfoList[i].playerObjectId == _playerId)
+			{
+				index = i;
+			}
+		}
+
+		// send msg for speed - its controlled on the client side
+		if(_pType == Pickup.PickupType.Damage)
+		{
+			this.hasDamagePowerup.Add((int)_playerId);
+		}
+
+		// Send msg
+		PickupMessage msg = new PickupMessage();
+		msg.playerId = _playerId;
+		msg.pType = (int) _pType;
+		msg.isStarting = true;
+
+		NetworkServer.SendToClient(this.playerInfoList[index].connectionId, CustomMsgType.Pickup, msg);
+
+		this.StartCoroutine(this.ResetPlayer(this.playerInfoList[index].connectionId, _playerId, (int)_pType));
+	}
+
+	private IEnumerator ResetPlayer(int _connectionId, uint _playerId, int _pType)
+	{
+		yield return new WaitForSeconds(this.pickupDuration);
+
+		if(_pType == 0)
+		{
+			if(this.hasDamagePowerup.Contains((int)_playerId))
+			{
+				this.hasDamagePowerup.RemoveAll(item => item == (int)_playerId);
+			}
+		}
+
+		// Send msg
+		PickupMessage msg = new PickupMessage();
+		msg.playerId = _playerId;
+		msg.pType = _pType;
+		msg.isStarting = false;
+
+		NetworkServer.SendToClient(_connectionId, CustomMsgType.Pickup, msg);
+
+		yield return null;
+	}
+
+	// Client
+	public void OnPickupInteraction(NetworkMessage _networkMessage)
+	{
+		PickupMessage msg = _networkMessage.ReadMessage<PickupMessage>();
+
+		PlayerManager tempPlayer = NetworkHelper.GetObjectByNetIdValue<PlayerManager>(msg.playerId, false);
+
+		if(msg.isStarting)
+		{
+			if(msg.pType == 0)
+			{
+				// Canvas stuff
+
+			}
+			else
+			{
+				// Canvas stuff
+
+				tempPlayer.OnSpeedPickup();
+			}
+		}
+		else
+		{
+			if(msg.pType == 0)
+			{
+				// Canvas stuff
+
+			}
+			else
+			{
+				// Canvas stuff
+
+				tempPlayer.ResetSpeed();
+			}
+		}
+	}
+
 	#endregion
 }
 
@@ -1168,6 +1360,8 @@ public class CustomMsgType
 	public static short Countdown = MsgType.Highest + 16;
 	public static short Input = MsgType.Highest + 17;
 	public static short EndGame = MsgType.Highest + 18;
+	public static short SpawnPickup = MsgType.Highest + 19;
+	public static short Pickup = MsgType.Highest + 20;
 }
 
 // Client to Server
@@ -1305,6 +1499,21 @@ public class EndGameMessage : MessageBase
 	public int score;
 	public string[] names;
 	public Color[] colours;
+}
+
+// Server to Client
+public class SpawnPickupMessage : MessageBase
+{
+	public uint pickupId;
+	public int type;
+}
+
+// Server to Client
+public class PickupMessage : MessageBase
+{
+	public uint playerId;
+	public int pType;
+	public bool isStarting;
 }
 
 #endregion

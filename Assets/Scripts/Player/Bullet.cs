@@ -157,7 +157,7 @@ public class Bullet : NetworkBehaviour
 			if((int)_collision.gameObject.GetComponent<NetworkIdentity>().netId.Value != this.ownerId)
 			{
 				GameManager temp =  GameObject.FindGameObjectWithTag("GameManager").GetComponent<GameManager>();
-				temp.OnBulletHit((int)_collision.transform.GetComponent<NetworkIdentity>().netId.Value);
+				temp.OnBulletHit((int)_collision.transform.GetComponent<NetworkIdentity>().netId.Value, this.ownerId);
 				NetworkServer.Destroy(this.gameObject);
 			}
 		}

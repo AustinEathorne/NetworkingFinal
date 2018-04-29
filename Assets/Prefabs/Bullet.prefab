@@ -114,7 +114,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   networkIdentity: {fileID: 114261117166183578}
   destroyTime: 3
-  networkSendRate: 10
+  networkSendRate: 5
+  ownerId: 0
 --- !u!114 &114261117166183578
 MonoBehaviour:
   m_ObjectHideFlags: 1

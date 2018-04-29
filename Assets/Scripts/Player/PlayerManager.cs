@@ -188,4 +188,15 @@ public class PlayerManager : NetworkBehaviour
 
 
 	}
+
+	// Local
+	public void OnSpeedPickup()
+	{
+		this.playerMovement.linearSpeed = 16;
+	}
+
+	public void ResetSpeed()
+	{
+		this.playerMovement.linearSpeed = 8;
+	}
 }

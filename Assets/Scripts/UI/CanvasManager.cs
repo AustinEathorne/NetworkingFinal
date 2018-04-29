@@ -12,6 +12,10 @@ public class CanvasManager : MonoBehaviour {
 	[SerializeField]
 	private GameManager gameManager;
 
+	[Header("Audio")]
+	[SerializeField]
+	private AudioSource audioSource;
+
 	[Header("Utility")]
 	[SerializeField]
 	private UIUtility uiUtility;
@@ -121,6 +125,14 @@ public class CanvasManager : MonoBehaviour {
 	private GameObject GameContainer;
 	[SerializeField]
 	private GameObject GameOverContainer;
+	[SerializeField]
+	private List<Text> winText;
+
+	[Header("Ran")]
+	[SerializeField]
+	private List<Sprite> audioSprites;
+	[SerializeField]
+	private Image audioButtonIamge;
 
 
 	private void Start()
@@ -501,6 +513,9 @@ public class CanvasManager : MonoBehaviour {
 			names += _names[i];
 		}
 
+		this.winText[0].text = _names.Length > 1 ? "Win!!!" : "Wins!!!";
+		this.winText[1].text = _names.Length > 1 ? "Win!!!" : "Wins!!!";
+
 		this.playerEndGameNameText[0].text = names;
 		this.playerEndGameNameText[1].text = names;
 
@@ -533,4 +548,22 @@ public class CanvasManager : MonoBehaviour {
 	}
 
 	#endregion
+
+	//.....
+	private bool isAudioEnabled = true;
+	public void EnableAudio()
+	{
+		this.isAudioEnabled = !this.isAudioEnabled;
+
+		if(isAudioEnabled)
+		{
+			this.audioButtonIamge.sprite = this.audioSprites[0];
+			this.audioSource.UnPause();
+		}
+		else
+		{
+			this.audioButtonIamge.sprite = this.audioSprites[1];
+			this.audioSource.Pause();
+		}
+	}
 }
